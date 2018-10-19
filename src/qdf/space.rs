@@ -1,16 +1,22 @@
-use qdf::*;
-use id::*;
 use error::*;
+use id::*;
+use qdf::*;
 
 #[derive(Debug, Clone)]
-pub struct Space<S> where S: State {
+pub struct Space<S>
+where
+    S: State,
+{
     id: Id,
     parent: Option<Id>,
     state: S,
     subspace: Vec<Id>,
 }
 
-impl<S> Space<S> where S: State {
+impl<S> Space<S>
+where
+    S: State,
+{
     #[inline]
     pub(crate) fn new(state: S) -> Self {
         Self {
@@ -57,7 +63,7 @@ impl<S> Space<S> where S: State {
     }
 
     #[inline]
-    pub fn subspace<'a>(&'a self) -> &'a[Id] {
+    pub fn subspace(&self) -> &[Id] {
         &self.subspace
     }
 
@@ -86,7 +92,10 @@ impl<S> Space<S> where S: State {
     }
 }
 
-impl<S> Default for Space<S> where S: State {
+impl<S> Default for Space<S>
+where
+    S: State,
+{
     #[inline]
     fn default() -> Self {
         Self::new(S::default())

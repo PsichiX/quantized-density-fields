@@ -1,5 +1,5 @@
-use uuid::Uuid;
 use std::fmt;
+use uuid::Uuid;
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone, PartialOrd, Ord)]
 pub struct Id(Uuid);

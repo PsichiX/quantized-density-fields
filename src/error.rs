@@ -1,5 +1,5 @@
-use std::result::Result as StdResult;
 use id::Id;
+use std::result::Result as StdResult;
 
 #[derive(Debug)]
 pub enum QDFError {

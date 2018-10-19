@@ -1,24 +1,30 @@
-mod tests;
 pub mod space;
 pub mod state;
+mod tests;
 
-use petgraph::graphmap::UnGraphMap;
-use petgraph::algo::astar;
 pub use self::space::*;
 pub use self::state::*;
-use id::*;
 use error::*;
+use id::*;
+use petgraph::algo::astar;
+use petgraph::graphmap::UnGraphMap;
 use std::collections::HashMap;
 
 #[derive(Debug)]
-pub struct QDF<S> where S: State {
+pub struct QDF<S>
+where
+    S: State,
+{
     graph: UnGraphMap<Id, ()>,
     spaces: HashMap<Id, Space<S>>,
     root: Id,
     subdivisions: usize,
 }
 
-impl<S> QDF<S> where S: State {
+impl<S> QDF<S>
+where
+    S: State,
+{
     pub fn new(subdivisions: usize, root_state: S) -> Self {
         let mut graph = UnGraphMap::new();
         let mut spaces = HashMap::new();
@@ -64,7 +70,7 @@ impl<S> QDF<S> where S: State {
 
     #[inline]
     pub fn space(&self, id: Id) -> &Space<S> {
-        self.spaces.get(&id).unwrap()
+        &self.spaces[&id]
     }
 
     #[inline]
@@ -170,8 +176,7 @@ impl<S> QDF<S> where S: State {
                         } else {
                             self.decrease_space_density(*id)
                         }
-                    })
-                    .collect::<Result<Vec<bool>>>()?
+                    }).collect::<Result<Vec<bool>>>()?
                     .iter()
                     .all(|v| *v);
                 if merge {
