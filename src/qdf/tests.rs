@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn test_2d() {
-    let mut qdf = QDF::new(3, 9);
+    let mut qdf = QDF::new(2, 9);
     let root = qdf.root();
     assert!(qdf.space_exists(root));
     if let None = qdf.try_get_space(root) {
@@ -70,7 +70,7 @@ fn test_2d() {
     );
 
     {
-        let mut qdf = QDF::new(3, 9);
+        let mut qdf = QDF::new(2, 9);
         let root = qdf.root();
         qdf.increase_space_density(root).unwrap();
         let space = qdf.space(root).clone();

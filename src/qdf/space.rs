@@ -1,4 +1,3 @@
-use error::*;
 use id::*;
 use qdf::*;
 
@@ -70,15 +69,6 @@ where
     #[inline]
     pub fn is_platonic(&self) -> bool {
         self.subspace.is_empty()
-    }
-
-    #[inline]
-    pub fn validate(&self, qdf: &QDF<S>) -> Result<()> {
-        if !self.subspace.is_empty() && (self.subspace.len() != qdf.subdivisions()) {
-            Err(QDFError::IncorrectSubdivisionsNumber(self.subspace.len()))
-        } else {
-            Ok(())
-        }
     }
 
     #[inline]
