@@ -5,7 +5,6 @@ use id::Id;
 pub enum QDFError {
     SpaceDoesNotExists(Id),
     IncorrectDimensionsNumber(usize),
-    SpaceIsNotSubdivided(Id),
 }
 
 pub type Result<T> = StdResult<T, QDFError>;

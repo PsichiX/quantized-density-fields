@@ -85,8 +85,8 @@ impl<S> QDF<S> where S: State {
                 let subs = self.dimensions + 1;
                 let substate = space.state().subdivide(subs);
                 let spaces = (0..subs)
-                .map(|_| Space::with_id_parent_state(Id::new(), id, substate.clone()))
-                .collect::<Vec<Space<S>>>();
+                    .map(|_| Space::with_id_parent_state(Id::new(), id, substate.clone()))
+                    .collect::<Vec<Space<S>>>();
                 let subspace = spaces.iter().map(|s| s.id()).collect::<Vec<Id>>();
 
                 for s in spaces {
@@ -116,42 +116,52 @@ impl<S> QDF<S> where S: State {
         }
     }
 
-    pub fn decrease_space_density(&mut self, id: Id) -> Result<()> {
+    pub fn decrease_space_density(&mut self, id: Id) -> Result<bool> {
         if self.space_exists(id) {
             let mut space = self.spaces[&id].clone();
             if space.subspace().is_empty() {
-                Err(QDFError::SpaceIsNotSubdivided(id))
+                Ok(true)
             } else {
-                // let substate = space.state().subdivide(subs);
-                // let spaces = (0..subs)
-                // .map(|_| Space::with_id_parent_state(Id::new(), id, substate.clone()))
-                // .collect::<Vec<Space<S>>>();
-                // let subspace = spaces.iter().map(|s| s.id()).collect::<Vec<Id>>();
-                //
-                // for s in spaces {
-                //     let id = s.id();
-                //     self.spaces.insert(id, s);
-                //     self.graph.add_node(id);
-                // }
-                // for a in &subspace {
-                //     for b in &subspace {
-                //         if a != b {
-                //             self.graph.add_edge(*a, *b, ());
-                //         }
-                //     }
-                // }
-                // let neighbors = self.graph.neighbors(id).collect::<Vec<Id>>();
-                // for (i, n) in neighbors.iter().enumerate() {
-                //     self.graph.remove_edge(*n, id);
-                //     self.graph.add_edge(*n, subspace[i], ());
-                // }
-                //
-                // space.apply_subspace(subspace);
-                // self.spaces.insert(id, space);
-                Ok(())
+                let merge = space
+                    .subspace()
+                    .iter()
+                    .map(|id| {
+                        if self.spaces[id].subspace().is_empty() {
+                            Ok(true)
+                        } else {
+                            self.decrease_space_density(*id)
+                        }
+                    })
+                    .collect::<Result<Vec<bool>>>()?
+                    .iter()
+                    .all(|v| *v);
+                if merge {
+                    let neighbors = space
+                        .subspace()
+                        .iter()
+                        .flat_map(|s| self.graph.neighbors(*s).collect::<Vec<Id>>())
+                        .filter(|s| !space.subspace().contains(s))
+                        .collect::<Vec<Id>>();
+                    for n in neighbors {
+                        self.graph.add_edge(id, n, ());
+                    }
+                    for s in space.subspace() {
+                        self.graph.remove_node(*s);
+                        self.spaces.remove(s);
+                    }
+                    space.apply_subspace(vec![]);
+                    self.spaces.insert(id, space);
+                }
+                Ok(false)
             }
         } else {
             Err(QDFError::SpaceDoesNotExists(id))
         }
+    }
+
+    #[inline]
+    pub fn decrease_space_density_level(&mut self, id: Id) -> Result<()> {
+        while !self.decrease_space_density(id)? {}
+        Ok(())
     }
 }

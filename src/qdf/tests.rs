@@ -57,4 +57,12 @@ fn test_2d() {
             }
         }
     }
+
+    qdf.decrease_space_density(root).unwrap();
+    assert_eq!(qdf.find_space_neighbors(subspace[0]).unwrap(), vec![subspace[1], subspace[2]]);
+    assert_eq!(qdf.find_space_neighbors(subspace[1]).unwrap(), vec![subspace[2], subspace[0]]);
+    assert_eq!(qdf.find_space_neighbors(subspace[2]).unwrap(), vec![subspace[1], subspace[0]]);
+    qdf.decrease_space_density(root).unwrap();
+    let space = qdf.space(root).clone();
+    assert_eq!(space.subspace().len(), 0);
 }
