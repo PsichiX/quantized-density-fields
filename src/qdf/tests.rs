@@ -40,4 +40,21 @@ fn test_2d() {
     assert_eq!(qdf.find_space_neighbors(subspace[0]).unwrap(), vec![]);
     assert_eq!(qdf.find_space_neighbors(subspace[1]).unwrap(), vec![subspace[2], subspace2[0]]);
     assert_eq!(qdf.find_space_neighbors(subspace[2]).unwrap(), vec![subspace[1], subspace2[1]]);
+
+    {
+        let mut qdf = QDF::new(2, 9);
+        let root = qdf.root();
+        qdf.increase_space_density(root).unwrap();
+        let space = qdf.space(root).clone();
+        assert_eq!(*space.state(), 9);
+        for root2 in space.subspace() {
+            qdf.increase_space_density(*root2).unwrap();
+            let space2 = qdf.space(*root2).clone();
+            assert_eq!(*space2.state(), 3);
+            for root3 in space2.subspace() {
+                let space3 = qdf.space(*root3).clone();
+                assert_eq!(*space3.state(), 1);
+            }
+        }
+    }
 }

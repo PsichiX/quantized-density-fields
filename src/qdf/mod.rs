@@ -77,34 +77,79 @@ impl<S> QDF<S> where S: State {
     pub fn increase_space_density(&mut self, id: Id) -> Result<()> {
         if self.space_exists(id) {
             let mut space = self.spaces[&id].clone();
-            let subs = self.dimensions + 1;
-            let substate = space.state().subdivide(subs);
-            let spaces = (0..subs)
+            if space.subspace().len() > 0 {
+                for s in space.subspace() {
+                    self.increase_space_density(*s)?;
+                }
+            } else {
+                let subs = self.dimensions + 1;
+                let substate = space.state().subdivide(subs);
+                let spaces = (0..subs)
                 .map(|_| Space::with_id_parent_state(Id::new(), id, substate.clone()))
                 .collect::<Vec<Space<S>>>();
-            let subspace = spaces.iter().map(|s| s.id()).collect::<Vec<Id>>();
+                let subspace = spaces.iter().map(|s| s.id()).collect::<Vec<Id>>();
 
-            for s in spaces {
-                let id = s.id();
-                self.spaces.insert(id, s);
-                self.graph.add_node(id);
-            }
-            for a in &subspace {
-                for b in &subspace {
-                    if a != b {
-                        self.graph.add_edge(*a, *b, ());
+                for s in spaces {
+                    let id = s.id();
+                    self.spaces.insert(id, s);
+                    self.graph.add_node(id);
+                }
+                for a in &subspace {
+                    for b in &subspace {
+                        if a != b {
+                            self.graph.add_edge(*a, *b, ());
+                        }
                     }
                 }
-            }
-            let neighbors = self.graph.neighbors(id).collect::<Vec<Id>>();
-            for (i, n) in neighbors.iter().enumerate() {
-                self.graph.remove_edge(*n, id);
-                self.graph.add_edge(*n, subspace[i], ());
-            }
+                let neighbors = self.graph.neighbors(id).collect::<Vec<Id>>();
+                for (i, n) in neighbors.iter().enumerate() {
+                    self.graph.remove_edge(*n, id);
+                    self.graph.add_edge(*n, subspace[i], ());
+                }
 
-            space.apply_subspace(subspace);
-            self.spaces.insert(id, space);
+                space.apply_subspace(subspace);
+                self.spaces.insert(id, space);
+            }
             Ok(())
+        } else {
+            Err(QDFError::SpaceDoesNotExists(id))
+        }
+    }
+
+    pub fn decrease_space_density(&mut self, id: Id) -> Result<()> {
+        if self.space_exists(id) {
+            let mut space = self.spaces[&id].clone();
+            if space.subspace().is_empty() {
+                Err(QDFError::SpaceIsNotSubdivided(id))
+            } else {
+                // let substate = space.state().subdivide(subs);
+                // let spaces = (0..subs)
+                // .map(|_| Space::with_id_parent_state(Id::new(), id, substate.clone()))
+                // .collect::<Vec<Space<S>>>();
+                // let subspace = spaces.iter().map(|s| s.id()).collect::<Vec<Id>>();
+                //
+                // for s in spaces {
+                //     let id = s.id();
+                //     self.spaces.insert(id, s);
+                //     self.graph.add_node(id);
+                // }
+                // for a in &subspace {
+                //     for b in &subspace {
+                //         if a != b {
+                //             self.graph.add_edge(*a, *b, ());
+                //         }
+                //     }
+                // }
+                // let neighbors = self.graph.neighbors(id).collect::<Vec<Id>>();
+                // for (i, n) in neighbors.iter().enumerate() {
+                //     self.graph.remove_edge(*n, id);
+                //     self.graph.add_edge(*n, subspace[i], ());
+                // }
+                //
+                // space.apply_subspace(subspace);
+                // self.spaces.insert(id, space);
+                Ok(())
+            }
         } else {
             Err(QDFError::SpaceDoesNotExists(id))
         }
