@@ -15,9 +15,10 @@ pub struct QDF<S>
 where
     S: State,
 {
-    graph: UnGraphMap<Id, ()>,
-    spaces: HashMap<Id, Space<S>>,
-    root: Id,
+    id: ID,
+    graph: UnGraphMap<ID, ()>,
+    spaces: HashMap<ID, Space<S>>,
+    root: ID,
     subdivisions: usize,
 }
 
@@ -28,10 +29,11 @@ where
     pub fn new(subdivisions: usize, root_state: S) -> Self {
         let mut graph = UnGraphMap::new();
         let mut spaces = HashMap::new();
-        let id = Id::new();
+        let id = ID::new();
         graph.add_node(id);
         spaces.insert(id, Space::with_id(id, root_state));
         Self {
+            id: ID::new(),
             graph,
             spaces,
             root: id,
@@ -40,7 +42,12 @@ where
     }
 
     #[inline]
-    pub fn root(&self) -> Id {
+    pub fn id(&self) -> ID {
+        self.id
+    }
+
+    #[inline]
+    pub fn root(&self) -> ID {
         self.root
     }
 
@@ -50,17 +57,17 @@ where
     }
 
     #[inline]
-    pub fn space_exists(&self, id: Id) -> bool {
+    pub fn space_exists(&self, id: ID) -> bool {
         self.spaces.contains_key(&id)
     }
 
     #[inline]
-    pub fn try_get_space(&self, id: Id) -> Option<&Space<S>> {
+    pub fn try_get_space(&self, id: ID) -> Option<&Space<S>> {
         self.spaces.get(&id)
     }
 
     #[inline]
-    pub fn get_space(&self, id: Id) -> Result<&Space<S>> {
+    pub fn get_space(&self, id: ID) -> Result<&Space<S>> {
         if let Some(space) = self.spaces.get(&id) {
             Ok(space)
         } else {
@@ -69,17 +76,17 @@ where
     }
 
     #[inline]
-    pub fn space(&self, id: Id) -> &Space<S> {
+    pub fn space(&self, id: ID) -> &Space<S> {
         &self.spaces[&id]
     }
 
     #[inline]
-    pub fn try_set_space_state(&mut self, id: Id, state: S) -> bool {
+    pub fn try_set_space_state(&mut self, id: ID, state: S) -> bool {
         self.set_space_state(id, state).is_ok()
     }
 
     #[inline]
-    pub fn set_space_state(&mut self, id: Id, state: S) -> Result<()> {
+    pub fn set_space_state(&mut self, id: ID, state: S) -> Result<()> {
         if self.space_exists(id) {
             let substate = state.subdivide(self.subdivisions);
             let mut space = self.spaces[&id].clone();
@@ -98,7 +105,7 @@ where
         }
     }
 
-    pub fn find_space_neighbors(&self, id: Id) -> Result<Vec<Id>> {
+    pub fn find_space_neighbors(&self, id: ID) -> Result<Vec<ID>> {
         if self.graph.contains_node(id) {
             Ok(self.graph.neighbors(id).collect())
         } else {
@@ -106,7 +113,7 @@ where
         }
     }
 
-    pub fn find_path(&self, from: Id, to: Id) -> Result<Vec<Id>> {
+    pub fn find_path(&self, from: ID, to: ID) -> Result<Vec<ID>> {
         if !self.space_exists(from) {
             return Err(QDFError::SpaceDoesNotExists(from));
         }
@@ -120,7 +127,7 @@ where
         }
     }
 
-    pub fn increase_space_density(&mut self, id: Id) -> Result<()> {
+    pub fn increase_space_density(&mut self, id: ID) -> Result<()> {
         if self.space_exists(id) {
             let mut space = self.spaces[&id].clone();
             if !space.is_platonic() {
@@ -130,9 +137,9 @@ where
             } else {
                 let substate = space.state().subdivide(self.subdivisions);
                 let spaces = (0..self.subdivisions)
-                    .map(|_| Space::with_id_parent_state(Id::new(), id, substate.clone()))
+                    .map(|_| Space::with_id_parent_state(ID::new(), id, substate.clone()))
                     .collect::<Vec<Space<S>>>();
-                let subspace = spaces.iter().map(|s| s.id()).collect::<Vec<Id>>();
+                let subspace = spaces.iter().map(|s| s.id()).collect::<Vec<ID>>();
 
                 for s in spaces {
                     let id = s.id();
@@ -146,7 +153,7 @@ where
                         }
                     }
                 }
-                let neighbors = self.graph.neighbors(id).collect::<Vec<Id>>();
+                let neighbors = self.graph.neighbors(id).collect::<Vec<ID>>();
                 for (i, n) in neighbors.iter().enumerate() {
                     self.graph.remove_edge(*n, id);
                     self.graph.add_edge(*n, subspace[i], ());
@@ -161,7 +168,7 @@ where
         }
     }
 
-    pub fn decrease_space_density(&mut self, id: Id) -> Result<bool> {
+    pub fn decrease_space_density(&mut self, id: ID) -> Result<bool> {
         if self.space_exists(id) {
             let mut space = self.spaces[&id].clone();
             if space.is_platonic() {
@@ -183,9 +190,9 @@ where
                     let neighbors = space
                         .subspace()
                         .iter()
-                        .flat_map(|s| self.graph.neighbors(*s).collect::<Vec<Id>>())
+                        .flat_map(|s| self.graph.neighbors(*s).collect::<Vec<ID>>())
                         .filter(|s| !space.subspace().contains(s))
-                        .collect::<Vec<Id>>();
+                        .collect::<Vec<ID>>();
                     for n in neighbors {
                         self.graph.add_edge(id, n, ());
                     }
@@ -204,12 +211,12 @@ where
     }
 
     #[inline]
-    pub fn decrease_space_density_level(&mut self, id: Id) -> Result<()> {
+    pub fn decrease_space_density_level(&mut self, id: ID) -> Result<()> {
         while !self.decrease_space_density(id)? {}
         Ok(())
     }
 
-    fn recalculate_state(&mut self, id: Id) -> Option<Id> {
+    fn recalculate_state(&mut self, id: ID) -> Option<ID> {
         let mut space = self.spaces[&id].clone();
         let states = space
             .subspace()

@@ -2,9 +2,9 @@ use std::fmt;
 use uuid::Uuid;
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone, PartialOrd, Ord)]
-pub struct Id(Uuid);
+pub struct ID(Uuid);
 
-impl Id {
+impl ID {
     #[inline]
     pub fn new() -> Self {
         Self::default()
@@ -16,23 +16,23 @@ impl Id {
     }
 }
 
-impl Default for Id {
+impl Default for ID {
     #[inline]
     fn default() -> Self {
-        Id(Uuid::new_v4())
+        ID(Uuid::new_v4())
     }
 }
 
-impl fmt::Debug for Id {
+impl fmt::Debug for ID {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.to_string())
     }
 }
 
-impl ToString for Id {
+impl ToString for ID {
     #[inline]
     fn to_string(&self) -> String {
-        format!("Id({})", self.0)
+        format!("ID({})", self.0)
     }
 }

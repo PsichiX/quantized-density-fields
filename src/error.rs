@@ -1,9 +1,9 @@
-use id::Id;
+use id::ID;
 use std::result::Result as StdResult;
 
 #[derive(Debug)]
 pub enum QDFError {
-    SpaceDoesNotExists(Id),
+    SpaceDoesNotExists(ID),
     IncorrectSubdivisionsNumber(usize),
 }
 

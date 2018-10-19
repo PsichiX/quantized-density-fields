@@ -7,10 +7,10 @@ pub struct Space<S>
 where
     S: State,
 {
-    id: Id,
-    parent: Option<Id>,
+    id: ID,
+    parent: Option<ID>,
     state: S,
-    subspace: Vec<Id>,
+    subspace: Vec<ID>,
 }
 
 impl<S> Space<S>
@@ -20,7 +20,7 @@ where
     #[inline]
     pub(crate) fn new(state: S) -> Self {
         Self {
-            id: Id::new(),
+            id: ID::new(),
             parent: None,
             state,
             subspace: vec![],
@@ -28,7 +28,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn with_id(id: Id, state: S) -> Self {
+    pub(crate) fn with_id(id: ID, state: S) -> Self {
         Self {
             id,
             parent: None,
@@ -38,7 +38,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn with_id_parent_state(id: Id, parent: Id, state: S) -> Self {
+    pub(crate) fn with_id_parent_state(id: ID, parent: ID, state: S) -> Self {
         Space {
             id,
             parent: Some(parent),
@@ -48,12 +48,12 @@ where
     }
 
     #[inline]
-    pub fn id(&self) -> Id {
+    pub fn id(&self) -> ID {
         self.id
     }
 
     #[inline]
-    pub fn parent(&self) -> Option<Id> {
+    pub fn parent(&self) -> Option<ID> {
         self.parent
     }
 
@@ -63,7 +63,7 @@ where
     }
 
     #[inline]
-    pub fn subspace(&self) -> &[Id] {
+    pub fn subspace(&self) -> &[ID] {
         &self.subspace
     }
 
@@ -87,7 +87,7 @@ where
     }
 
     #[inline]
-    pub(crate) fn apply_subspace(&mut self, subspace: Vec<Id>) {
+    pub(crate) fn apply_subspace(&mut self, subspace: Vec<ID>) {
         self.subspace = subspace;
     }
 }
