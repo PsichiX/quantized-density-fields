@@ -68,11 +68,16 @@ impl<S> Space<S> where S: State {
 
     #[inline]
     pub fn validate(&self, qdf: &QDF<S>) -> Result<()> {
-        if !self.subspace.is_empty() && (self.subspace.len() != qdf.dimensions() + 1) {
-            Err(QDFError::IncorrectDimensionsNumber(self.subspace.len()))
+        if !self.subspace.is_empty() && (self.subspace.len() != qdf.subdivisions()) {
+            Err(QDFError::IncorrectSubdivisionsNumber(self.subspace.len()))
         } else {
             Ok(())
         }
+    }
+
+    #[inline]
+    pub(crate) fn apply_state(&mut self, state: S) {
+        self.state = state;
     }
 
     #[inline]

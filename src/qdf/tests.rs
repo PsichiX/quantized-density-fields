@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn test_2d() {
-    let mut qdf = QDF::new(2, 9);
+    let mut qdf = QDF::new(3, 9);
     let root = qdf.root();
     assert!(qdf.space_exists(root));
     if let None = qdf.try_get_space(root) {
@@ -43,7 +43,7 @@ fn test_2d() {
     assert_eq!(qdf.find_path(subspace2[0], subspace[2]).unwrap(), vec![subspace2[0], subspace2[1], subspace[2]]);
 
     {
-        let mut qdf = QDF::new(2, 9);
+        let mut qdf = QDF::new(3, 9);
         let root = qdf.root();
         qdf.increase_space_density(root).unwrap();
         let space = qdf.space(root).clone();
@@ -58,6 +58,23 @@ fn test_2d() {
             }
         }
     }
+
+    qdf.set_space_state(root, 27).unwrap();
+    assert_eq!(*qdf.space(root).state(), 27);
+    assert_eq!(*qdf.space(subspace[0]).state(), 9);
+    assert_eq!(*qdf.space(subspace[1]).state(), 9);
+    assert_eq!(*qdf.space(subspace[2]).state(), 9);
+    assert_eq!(*qdf.space(subspace2[0]).state(), 3);
+    assert_eq!(*qdf.space(subspace2[1]).state(), 3);
+    assert_eq!(*qdf.space(subspace2[2]).state(), 3);
+    qdf.set_space_state(subspace2[0], 6).unwrap();
+    assert_eq!(*qdf.space(root).state(), 30);
+    assert_eq!(*qdf.space(subspace[0]).state(), 12);
+    assert_eq!(*qdf.space(subspace[1]).state(), 9);
+    assert_eq!(*qdf.space(subspace[2]).state(), 9);
+    assert_eq!(*qdf.space(subspace2[0]).state(), 6);
+    assert_eq!(*qdf.space(subspace2[1]).state(), 3);
+    assert_eq!(*qdf.space(subspace2[2]).state(), 3);
 
     qdf.decrease_space_density(root).unwrap();
     assert_eq!(qdf.find_space_neighbors(subspace[0]).unwrap(), vec![subspace[1], subspace[2]]);
