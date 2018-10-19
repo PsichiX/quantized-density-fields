@@ -1,0 +1,10 @@
+[package]
+name = "quantized-density-fields"
+version = "0.1.0"
+authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
+
+[dependencies]
+uuid = { version = "*", features = ["serde", "v4"] }
+serde = "*"
+serde_json = "*"
+petgraph = "*"
