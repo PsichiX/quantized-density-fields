@@ -3,6 +3,7 @@ pub mod space;
 pub mod state;
 
 use petgraph::graphmap::UnGraphMap;
+use petgraph::algo::astar;
 pub use self::space::*;
 pub use self::state::*;
 use id::*;
@@ -74,10 +75,24 @@ impl<S> QDF<S> where S: State {
         }
     }
 
+    pub fn find_path(&self, from: Id, to: Id) -> Result<Vec<Id>> {
+        if !self.space_exists(from) {
+            return Err(QDFError::SpaceDoesNotExists(from));
+        }
+        if !self.space_exists(to) {
+            return Err(QDFError::SpaceDoesNotExists(to));
+        }
+        if let Some((_, spaces)) = astar(&self.graph, from, |f| f == to, |_| 1, |_| 0) {
+            Ok(spaces)
+        } else {
+            Ok(vec![])
+        }
+    }
+
     pub fn increase_space_density(&mut self, id: Id) -> Result<()> {
         if self.space_exists(id) {
             let mut space = self.spaces[&id].clone();
-            if space.subspace().len() > 0 {
+            if !space.is_platonic() {
                 for s in space.subspace() {
                     self.increase_space_density(*s)?;
                 }
@@ -119,14 +134,14 @@ impl<S> QDF<S> where S: State {
     pub fn decrease_space_density(&mut self, id: Id) -> Result<bool> {
         if self.space_exists(id) {
             let mut space = self.spaces[&id].clone();
-            if space.subspace().is_empty() {
+            if space.is_platonic() {
                 Ok(true)
             } else {
                 let merge = space
                     .subspace()
                     .iter()
                     .map(|id| {
-                        if self.spaces[id].subspace().is_empty() {
+                        if self.spaces[id].is_platonic() {
                             Ok(true)
                         } else {
                             self.decrease_space_density(*id)
