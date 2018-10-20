@@ -2,6 +2,12 @@
 name = "quantized-density-fields"
 version = "0.1.0"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
+repository = "https://github.com/PsichiX/quantized-density-fields"
+readme = "README.md"
+keywords = ["data-structure","graph","multidimensional"]
+categories = ["data-structures","science"]
+license = "MIT"
+license-file = "LICENSE"
 
 [dependencies]
 uuid = { version = "*", features = ["serde", "v4"] }
