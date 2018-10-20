@@ -57,6 +57,11 @@ where
     }
 
     #[inline]
+    pub fn state(&self) -> &S {
+        self.spaces[&self.root].state()
+    }
+
+    #[inline]
     pub fn space_exists(&self, id: ID) -> bool {
         self.spaces.contains_key(&id)
     }
