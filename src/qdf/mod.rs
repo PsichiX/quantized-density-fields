@@ -110,6 +110,7 @@ where
         }
     }
 
+    #[inline]
     pub fn find_space_neighbors(&self, id: ID) -> Result<Vec<ID>> {
         if self.graph.contains_node(id) {
             Ok(self.graph.neighbors(id).collect())
@@ -125,7 +126,7 @@ where
         if !self.space_exists(to) {
             return Err(QDFError::SpaceDoesNotExists(to));
         }
-        if let Some((_, spaces)) = astar(&self.graph, from, |f| f == to, |_| 1, |_| 0) {
+        if let Some((_, spaces)) = astar(&self.graph, from, |f| f == to, |_| 0, |_| 0) {
             Ok(spaces)
         } else {
             Ok(vec![])
