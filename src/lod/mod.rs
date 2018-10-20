@@ -101,6 +101,7 @@ where
                 Self::connect_clusters(*l, graph, levels);
             }
             // TODO: figure out how to find proper indices in neighbors to use them to connect into.
+            // TODO: is it even possible without spatial information?
             // let neighbors = graph.neighbors(id).collect();
         }
     }
