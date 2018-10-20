@@ -9,6 +9,7 @@ keywords = ["data-structure","graph","multidimensional"]
 categories = ["data-structures","science"]
 license = "MIT"
 license-file = "LICENSE"
+documentation = "https://docs.rs/quantized-density-fields"
 
 [dependencies]
 uuid = { version = "0.7.1", features = ["serde", "v4"] }
