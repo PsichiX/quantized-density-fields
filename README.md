@@ -8,7 +8,7 @@ Rust implementation of Quantized Density Fields data structure.
 Record in `Cargo.toml`:
 ```toml
 [dependencies]
-quantized-density-fields = "0.1.3"
+quantized-density-fields = "0.1.4"
 ```
 
 Your crate module:
@@ -34,8 +34,8 @@ assert_eq!(qdf.find_path(subs2[0], subs[2]).unwrap(), vec![subs2[0], subs2[1], s
 # Concept
 QDF does not exists in any space - it IS the space, it defines it,
 it describes it so there are no space coordinates and it is your responsibility to deliver it.
-In future releases this crate will have module for projecting QDF into Euclidean space
-and will have a satelite crate to easlyy traverse and visualize space.
+In future releases this crate will have module for projecting QDF onto Euclidean space
+and will have a satelite crate to easly traverse and visualize space.
 
 To sample specified region you have to know some space ID and gather the rest of information
 based on it neighbors spaces.
