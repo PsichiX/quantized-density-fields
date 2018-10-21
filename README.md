@@ -1,14 +1,15 @@
 # Quantized Density Fields
 Rust implementation of Quantized Density Fields data structure.
 
-![Docs.rs](https://docs.rs/quantized-density-fields/badge.svg)
-![Crates.io](https://img.shields.io/crates/v/quantized-density-fields.svg)
+![Travis CI](https://travis-ci.org/PsichiX/quantized-density-fields.svg?branch=master)
+[![Docs.rs](https://docs.rs/quantized-density-fields/badge.svg)](https://docs.rs/quantized-density-fields)
+[![Crates.io](https://img.shields.io/crates/v/quantized-density-fields.svg)](https://crates.io/crates/quantized-density-fields)
 
 # Usage
 Record in `Cargo.toml`:
 ```toml
 [dependencies]
-quantized-density-fields = "0.1.4"
+quantized-density-fields = "0.1.5"
 ```
 
 Your crate module:
