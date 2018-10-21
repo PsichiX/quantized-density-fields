@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+/// Trait that describes QDF space state.
 pub trait State: Sized + Clone + Default + Debug + Subdividable {}
 
 impl State for () {}
@@ -17,8 +18,40 @@ impl State for f64 {}
 impl State for isize {}
 impl State for usize {}
 
+/// Trait that describes subdividable data.
+///
+/// # Examples
+/// ```
+/// use quantized_density_fields::Subdividable;
+/// use std::iter::repeat;
+///
+/// #[derive(Debug, Eq, PartialEq, Clone)]
+/// struct Integer(i32);
+///
+/// impl Subdividable for Integer {
+///     fn subdivide(&self, subdivisions: usize) -> Self {
+///         Integer(self.0 / subdivisions as i32)
+///     }
+///     fn merge(states: &[Self]) -> Self {
+///         Integer(states.iter().map(|v| v.0).sum())
+///     }
+/// }
+///
+/// let substate = Integer(16).subdivide(4);
+/// assert_eq!(substate, Integer(4));
+/// let state = Subdividable::merge(&repeat(substate).take(4).collect::<Vec<Integer>>());
+/// assert_eq!(state, Integer(16));
+/// ```
 pub trait Subdividable: Sized {
+    /// Create data template that we get by subdivision of source data.
+    ///
+    /// # Arguments
+    /// * `subdivisions` - number of subdivisions.
     fn subdivide(&self, subdivisions: usize) -> Self;
+    /// Merge multiple data instances into one.
+    ///
+    /// # Arguments
+    /// * `states` - list of source data to merge.
     fn merge(states: &[Self]) -> Self;
 }
 

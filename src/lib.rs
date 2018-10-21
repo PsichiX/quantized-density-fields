@@ -1,6 +1,6 @@
+//! Quantized Density Fields represents information space with dimensions number specified by user.
+
 extern crate petgraph;
-extern crate serde;
-extern crate serde_json;
 extern crate uuid;
 
 pub mod error;

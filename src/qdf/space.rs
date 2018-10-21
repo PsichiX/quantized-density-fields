@@ -1,6 +1,7 @@
 use id::*;
 use qdf::*;
 
+/// Holds information about space region.
 #[derive(Debug, Clone)]
 pub struct Space<S>
 where
@@ -46,26 +47,31 @@ where
         }
     }
 
+    /// Gets space id.
     #[inline]
     pub fn id(&self) -> ID {
         self.id
     }
 
+    /// Gets space parent id or `None` if it is root space.
     #[inline]
     pub fn parent(&self) -> Option<ID> {
         self.parent
     }
 
+    /// Gets space state.
     #[inline]
     pub fn state(&self) -> &S {
         &self.state
     }
 
+    /// Gets space subspace (list of children spaces).
     #[inline]
     pub fn subspace(&self) -> &[ID] {
         &self.subspace
     }
 
+    /// Tells if space is platonic (has subspaces).
     #[inline]
     pub fn is_platonic(&self) -> bool {
         self.subspace.is_empty()

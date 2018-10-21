@@ -1,18 +1,15 @@
 [package]
 name = "quantized-density-fields"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Rust implementation of Quantized Density Fields data structure."
 repository = "https://github.com/PsichiX/quantized-density-fields"
 readme = "README.md"
 keywords = ["data-structure","graph","multidimensional"]
 categories = ["data-structures","science"]
-license = "MIT"
 license-file = "LICENSE"
 documentation = "https://docs.rs/quantized-density-fields"
 
 [dependencies]
 uuid = { version = "0.7.1", features = ["serde", "v4"] }
-serde = "1.0.80"
-serde_json = "1.0.32"
 petgraph = "0.4.13"

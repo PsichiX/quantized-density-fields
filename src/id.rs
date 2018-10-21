@@ -1,15 +1,18 @@
 use std::fmt;
 use uuid::Uuid;
 
+/// Universal Identifier (uuidv4).
 #[derive(PartialEq, Eq, Hash, Copy, Clone, PartialOrd, Ord)]
 pub struct ID(Uuid);
 
 impl ID {
+    /// Creates new identifier.
     #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Gets underlying UUID object.
     #[inline]
     pub fn uuid(&self) -> Uuid {
         self.0
