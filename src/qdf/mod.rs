@@ -13,10 +13,13 @@ use std::collections::HashMap;
 /// Object that represents quantized density fields.
 ///
 /// # Concept
-/// MOST IMPORTANT NODE: QDF does not exists in any space - it IS the space, it describes it,
-/// so there are no space coordinates.
-/// To sample specified region you have to know some space and gather the rest of information
-/// based on it neighbors.
+/// QDF does not exists in any space - it IS the space, it defines it,
+/// it describes it so there are no space coordinates and it is your responsibility to deliver it.
+/// In future releases this crate will have module for projecting QDF into Euclidean space
+/// and will have a satelite crate to easlyy traverse and visualize space.
+///
+/// To sample specified region you have to know some space ID and gather the rest of information
+/// based on it neighbors spaces.
 /// It gives the ability to cotrol space density at specified locations, which can be used
 /// for example to simulate space curvature based on gravity.
 #[derive(Debug)]
