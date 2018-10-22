@@ -429,7 +429,7 @@ where
             .iter()
             .map(|s| self.spaces[&s].state().clone())
             .collect::<Vec<S>>();
-        space.apply_state(Subdividable::merge(&states));
+        space.apply_state(State::merge(&states));
         let parent = space.parent();
         self.spaces.insert(id, space);
         parent

@@ -1,6 +1,6 @@
 [package]
 name = "quantized-density-fields"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["Patryk 'PsichiX' Budzynski <psichix@gmail.com>"]
 description = "Rust implementation of Quantized Density Fields data structure."
 repository = "https://github.com/PsichiX/quantized-density-fields"

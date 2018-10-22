@@ -423,7 +423,7 @@ where
                     .iter()
                     .map(|l| self.recalculate_level_state(*l))
                     .collect::<Result<Vec<S>>>()?;
-                Subdividable::merge(&states)
+                State::merge(&states)
             },
             LevelData::Field(field) => self.fields[field].state().clone(),
         };
