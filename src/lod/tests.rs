@@ -58,6 +58,9 @@ fn test_2d() {
     lod.recalculate_level_state(root).unwrap();
     assert_eq!(*lod.state(), 20);
 
+    lod.simulation_step::<()>().unwrap();
+    lod.simulation_step_parallel::<()>().unwrap();
+
     {
         let root2a = level.data().as_sublevels()[0];
         let level2a = lod.level(root2a).clone();

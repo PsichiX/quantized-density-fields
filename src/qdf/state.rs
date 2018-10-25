@@ -24,7 +24,7 @@ use std::fmt::Debug;
 /// let state = State::merge(&repeat(substate).take(4).collect::<Vec<Integer>>());
 /// assert_eq!(state, Integer(16));
 /// ```
-pub trait State: Sized + Clone + Default + Debug {
+pub trait State: Sized + Clone + Default + Send + Sync + Debug {
     /// Create data template that we get by subdivision of source data.
     ///
     /// # Arguments

@@ -103,6 +103,9 @@ fn test_2d() {
     assert_eq!(*qdf.space(subspace2[1]).state(), 3);
     assert_eq!(*qdf.space(subspace2[2]).state(), 3);
 
+    qdf.simulation_step::<()>();
+    qdf.simulation_step_parallel::<()>();
+
     qdf.decrease_space_density(root).unwrap();
     assert_eq!(
         qdf.find_space_neighbors(subspace[0]).unwrap(),

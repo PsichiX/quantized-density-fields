@@ -13,3 +13,4 @@ documentation = "https://docs.rs/quantized-density-fields"
 [dependencies]
 uuid = { version = "0.7.1", features = ["serde", "v4"] }
 petgraph = "0.4.13"
+rayon = "1.0.2"

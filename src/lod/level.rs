@@ -96,15 +96,12 @@ where
     data: LevelData,
 }
 
-impl<S> Level<S> where S: State {
+impl<S> Level<S>
+where
+    S: State,
+{
     #[inline]
-    pub(crate) fn new(
-        id: ID,
-        parent: Option<ID>,
-        level: usize,
-        index: usize,
-        state: S,
-    ) -> Self {
+    pub(crate) fn new(id: ID, parent: Option<ID>, level: usize, index: usize, state: S) -> Self {
         Self {
             id,
             parent,

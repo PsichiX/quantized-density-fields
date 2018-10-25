@@ -4,15 +4,18 @@ mod tests;
 pub use self::level::*;
 use error::*;
 use id::*;
-use petgraph::graphmap::UnGraphMap;
 use petgraph::algo::astar;
-use std::collections::HashMap;
+use petgraph::graphmap::UnGraphMap;
 use qdf::*;
+use std::collections::HashMap;
 
 /// Object that represents space level of details.
 /// This gives you the ability to sample space area states at different zoom levels (LOD mechanism).
 #[derive(Debug)]
-pub struct LOD<S> where S: State {
+pub struct LOD<S>
+where
+    S: State,
+{
     id: ID,
     graph: UnGraphMap<ID, ()>,
     levels: HashMap<ID, Level<S>>,
@@ -53,7 +56,14 @@ where
         let main = Level::new(root, None, 0, 0, root_state);
         levels.insert(root, main);
         graph.add_node(root);
-        Self::subdivide_level(root, &mut graph, &mut levels, &mut fields, dimensions + 2, count);
+        Self::subdivide_level(
+            root,
+            &mut graph,
+            &mut levels,
+            &mut fields,
+            dimensions + 2,
+            count,
+        );
         Self::connect_clusters(root, &mut graph, &levels);
         Self {
             id: ID::new(),
@@ -412,6 +422,23 @@ where
         self.recalculate_level_state(id)
     }
 
+    /// Simulate underlying QDF objects. See more: `QDF::simulation_step()`.
+    pub fn simulation_step<M>(&mut self) -> Result<S> where M: Simulate<S> {
+        for (_, field) in self.fields.iter_mut() {
+            field.simulation_step::<M>();
+        }
+        self.recalculate_state()
+    }
+
+    /// Simulate underlying QDF objects in parallel manner.
+    /// See more: `QDF::simulation_step_parallel()`.
+    pub fn simulation_step_parallel<M>(&mut self) -> Result<S> where M: Simulate<S> {
+        for (_, field) in self.fields.iter_mut() {
+            field.simulation_step_parallel::<M>();
+        }
+        self.recalculate_state()
+    }
+
     fn recalculate_level_state(&mut self, id: ID) -> Result<S> {
         if !self.level_exists(id) {
             return Err(QDFError::LevelDoesNotExists(id));
@@ -424,7 +451,7 @@ where
                     .map(|l| self.recalculate_level_state(*l))
                     .collect::<Result<Vec<S>>>()?;
                 State::merge(&states)
-            },
+            }
             LevelData::Field(field) => self.fields[field].state().clone(),
         };
         level.apply_state(state.clone());
@@ -448,13 +475,14 @@ where
                     let i = ID::new();
                     graph.add_node(i);
                     Level::new(i, Some(id), level.level() + 1, idx, substate.clone())
-                })
-                .collect::<Vec<Level<S>>>();
+                }).collect::<Vec<Level<S>>>();
             let first = sublevels[0].id();
             for l in sublevels.iter().skip(1) {
                 graph.add_edge(first, l.id(), ());
             }
-            level.apply_data(LevelData::SubLevels(sublevels.iter().map(|l| l.id()).collect()));
+            level.apply_data(LevelData::SubLevels(
+                sublevels.iter().map(|l| l.id()).collect(),
+            ));
             for l in sublevels {
                 let i = l.id();
                 levels.insert(i, l);

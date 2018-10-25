@@ -8,7 +8,27 @@ use error::*;
 use id::*;
 use petgraph::algo::astar;
 use petgraph::graphmap::UnGraphMap;
+use rayon::prelude::*;
 use std::collections::HashMap;
+
+/// Short hand type alias for space graph.
+pub type SpaceGraph = UnGraphMap<ID, ()>;
+/// Short hand type alias for space map.
+pub type SpaceMap<S> = HashMap<ID, Space<S>>;
+
+/// Trait that tells QDF how to simulate states of space.
+pub trait Simulate<S> where S: State {
+    /// Performs simulation of state based on neighbor states.
+    ///
+    /// # Arguments
+    /// * `state` - current state.
+    /// * `neighbor_states` - current neighbor states.
+    fn simulate(state: &S, neighbor_states: &[&S]) -> S;
+}
+
+impl<S> Simulate<S> for () where S: State {
+    fn simulate(state: &S, _: &[&S]) -> S { state.clone() }
+}
 
 /// Object that represents quantized density fields.
 ///
@@ -28,8 +48,8 @@ where
     S: State,
 {
     id: ID,
-    graph: UnGraphMap<ID, ()>,
-    spaces: HashMap<ID, Space<S>>,
+    graph: SpaceGraph,
+    spaces: SpaceMap<S>,
     root: ID,
     dimensions: usize,
 }
@@ -422,6 +442,67 @@ where
         Ok(())
     }
 
+    /// Performs simulation step (go through all platonic spaces and modifies its states based on
+    /// neighbor states). Actual state simulation is performed by your struct that implements
+    /// `Simulation` trait.
+    pub fn simulation_step<M>(&mut self) where M: Simulate<S> {
+        let states = self.simulate_states::<M>();
+        for (id, state) in states {
+            self.spaces.get_mut(&id).unwrap().apply_state(state);
+        }
+        let root = self.root;
+        self.recalculate_state_downward(root);
+    }
+
+    /// Does the same as `simulation_step()` but in parallel manner (it may or may not increase
+    /// simulation performance if simulation is very complex).
+    pub fn simulation_step_parallel<M>(&mut self) where M: Simulate<S> {
+        let states = self.simulate_states_parallel::<M>();
+        for (id, state) in states {
+            self.spaces.get_mut(&id).unwrap().apply_state(state);
+        }
+        let root = self.root;
+        self.recalculate_state_downward(root);
+    }
+
+    /// Performs simulation on QDF like `simulation_step()` but instead of applying results to QDF,
+    /// it returns simulated platonic space states along with their space ID.
+    pub fn simulate_states<M>(&self) -> Vec<(ID, S)> where M: Simulate<S> {
+        self.spaces
+            .iter()
+            .filter_map(|(id, space)| if space.is_platonic() {
+                let neighbor_states = self.graph
+                    .neighbors(*id)
+                    .map(|i| self.spaces[&i].state())
+                    .collect::<Vec<&S>>();
+                Some((*id, M::simulate(space.state(), &neighbor_states)))
+            } else {
+                None
+            })
+            .collect()
+    }
+
+    /// Performs simulation on QDF like `simulation_step_parallel()` but instead of applying
+    /// results to QDF, it returns simulated platonic space states along with their space ID.
+    pub fn simulate_states_parallel<M>(&self) -> Vec<(ID, S)> where M: Simulate<S> {
+        self.spaces
+            .iter()
+            .filter_map(|(id, space)| if space.is_platonic() {
+                let neighbor_states = self
+                    .graph
+                    .neighbors(*id)
+                    .map(|i| self.spaces[&i].state())
+                    .collect::<Vec<&S>>();
+                Some((*id, space.state(), neighbor_states))
+            } else {
+                None
+            })
+            .collect::<Vec<(ID, &S, Vec<&S>)>>()
+            .par_iter()
+            .map(|(id, state, neighbor_states)| (*id, M::simulate(state, &neighbor_states)))
+            .collect()
+    }
+
     fn recalculate_state(&mut self, id: ID) -> Option<ID> {
         let mut space = self.spaces[&id].clone();
         let states = space
@@ -433,5 +514,22 @@ where
         let parent = space.parent();
         self.spaces.insert(id, space);
         parent
+    }
+
+    fn recalculate_state_downward(&mut self, id: ID) {
+        let mut space = self.spaces[&id].clone();
+        if !space.is_platonic() {
+            for id in space.subspace() {
+                self.recalculate_state_downward(*id);
+            }
+            let states = space
+                .subspace()
+                .iter()
+                .map(|id| self.spaces[&id].state().clone())
+                .collect::<Vec<S>>();
+            let state = State::merge(&states);
+            space.apply_state(state.clone());
+            self.spaces.insert(id, space);
+        }
     }
 }
