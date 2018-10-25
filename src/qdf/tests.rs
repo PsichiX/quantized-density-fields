@@ -1,6 +1,7 @@
 #![cfg(test)]
 
 use super::*;
+// use test::Bencher;
 
 #[test]
 fn test_2d() {
@@ -127,3 +128,46 @@ fn test_2d() {
     let space = qdf.space(root).clone();
     assert_eq!(space.subspace().len(), 0);
 }
+
+// #[bench]
+// fn bench_simulation_step_level_5_2d(b: &mut Bencher) {
+//     let mut qdf = QDF::new(2, 243);
+//     let root = qdf.root();
+//     increase_space_density(&mut qdf, root, 5).unwrap();
+//     b.iter(|| qdf.simulation_step::<()>());
+// }
+//
+// #[bench]
+// fn bench_simulation_step_level_10_2d(b: &mut Bencher) {
+//     let mut qdf = QDF::new(2, 59049);
+//     let root = qdf.root();
+//     increase_space_density(&mut qdf, root, 10).unwrap();
+//     b.iter(|| qdf.simulation_step::<()>());
+// }
+//
+// #[bench]
+// fn bench_simulation_step_parallel_level_5_2d(b: &mut Bencher) {
+//     let mut qdf = QDF::new(2, 243);
+//     let root = qdf.root();
+//     increase_space_density(&mut qdf, root, 5).unwrap();
+//     b.iter(|| qdf.simulation_step_parallel::<()>());
+// }
+//
+// #[bench]
+// fn bench_simulation_step_parallel_level_10_2d(b: &mut Bencher) {
+//     let mut qdf = QDF::new(2, 59049);
+//     let root = qdf.root();
+//     increase_space_density(&mut qdf, root, 10).unwrap();
+//     b.iter(|| qdf.simulation_step_parallel::<()>());
+// }
+//
+// fn increase_space_density(qdf: &mut QDF<i32>, id: ID, depth: usize) -> Result<()> {
+//     if depth > 0 {
+//         qdf.increase_space_density(id)?;
+//         let space = qdf.space(id).clone();
+//         for id in space.subspace() {
+//             increase_space_density(qdf, *id, depth - 1)?;
+//         }
+//     }
+//     Ok(())
+// }

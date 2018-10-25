@@ -9,7 +9,7 @@ use id::*;
 use petgraph::algo::astar;
 use petgraph::graphmap::UnGraphMap;
 use rayon::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Short hand type alias for space graph.
 pub type SpaceGraph = UnGraphMap<ID, ()>;
@@ -58,6 +58,7 @@ where
     id: ID,
     graph: SpaceGraph,
     spaces: SpaceMap<S>,
+    platonic_spaces: HashSet<ID>,
     root: ID,
     dimensions: usize,
 }
@@ -83,13 +84,16 @@ where
     pub fn new(dimensions: usize, root_state: S) -> Self {
         let mut graph = UnGraphMap::new();
         let mut spaces = HashMap::new();
+        let mut platonic_spaces = HashSet::new();
         let id = ID::new();
         graph.add_node(id);
         spaces.insert(id, Space::with_id(id, root_state));
+        platonic_spaces.insert(id);
         Self {
             id: ID::new(),
             graph,
             spaces,
+            platonic_spaces,
             root: id,
             dimensions,
         }
@@ -368,8 +372,10 @@ where
                 for (i, n) in neighbors.iter().enumerate() {
                     self.graph.remove_edge(*n, id);
                     self.graph.add_edge(*n, subspace[i], ());
+                    self.platonic_spaces.insert(*n);
                 }
 
+                self.platonic_spaces.remove(&id);
                 space.apply_subspace(subspace);
                 self.spaces.insert(id, space);
             }
@@ -486,19 +492,15 @@ where
     where
         M: Simulate<S>,
     {
-        self.spaces
+        self.platonic_spaces
             .iter()
-            .filter_map(|(id, space)| {
-                if space.is_platonic() {
-                    let neighbor_states = self
-                        .graph
-                        .neighbors(*id)
-                        .map(|i| self.spaces[&i].state())
-                        .collect::<Vec<&S>>();
-                    Some((*id, M::simulate(space.state(), &neighbor_states)))
-                } else {
-                    None
-                }
+            .map(|id| {
+                let neighbor_states = self
+                    .graph
+                    .neighbors(*id)
+                    .map(|i| self.spaces[&i].state())
+                    .collect::<Vec<&S>>();
+                (*id, M::simulate(self.spaces[id].state(), &neighbor_states))
             }).collect()
     }
 
@@ -508,23 +510,16 @@ where
     where
         M: Simulate<S>,
     {
-        self.spaces
-            .iter()
-            .filter_map(|(id, space)| {
-                if space.is_platonic() {
-                    let neighbor_states = self
-                        .graph
-                        .neighbors(*id)
-                        .map(|i| self.spaces[&i].state())
-                        .collect::<Vec<&S>>();
-                    Some((*id, space.state(), neighbor_states))
-                } else {
-                    None
-                }
-            }).collect::<Vec<(ID, &S, Vec<&S>)>>()
+        self.platonic_spaces
             .par_iter()
-            .map(|(id, state, neighbor_states)| (*id, M::simulate(state, &neighbor_states)))
-            .collect()
+            .map(|id| {
+                let neighbor_states = self
+                    .graph
+                    .neighbors(*id)
+                    .map(|i| self.spaces[&i].state())
+                    .collect::<Vec<&S>>();
+                (*id, M::simulate(self.spaces[id].state(), &neighbor_states))
+            }).collect()
     }
 
     fn recalculate_state(&mut self, id: ID) -> Option<ID> {
