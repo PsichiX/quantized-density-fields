@@ -423,8 +423,11 @@ where
     }
 
     /// Simulate underlying QDF objects. See more: `QDF::simulation_step()`.
-    pub fn simulation_step<M>(&mut self) -> Result<S> where M: Simulate<S> {
-        for (_, field) in self.fields.iter_mut() {
+    pub fn simulation_step<M>(&mut self) -> Result<S>
+    where
+        M: Simulate<S>,
+    {
+        for field in self.fields.values_mut() {
             field.simulation_step::<M>();
         }
         self.recalculate_state()
@@ -432,8 +435,11 @@ where
 
     /// Simulate underlying QDF objects in parallel manner.
     /// See more: `QDF::simulation_step_parallel()`.
-    pub fn simulation_step_parallel<M>(&mut self) -> Result<S> where M: Simulate<S> {
-        for (_, field) in self.fields.iter_mut() {
+    pub fn simulation_step_parallel<M>(&mut self) -> Result<S>
+    where
+        M: Simulate<S>,
+    {
+        for field in self.fields.values_mut() {
             field.simulation_step_parallel::<M>();
         }
         self.recalculate_state()
@@ -506,7 +512,7 @@ where
                 .map(|i| (i, levels[&i].index()))
                 .collect::<Vec<(ID, usize)>>();
             for (i, l) in sublevels.iter().enumerate().skip(1) {
-                for (nl, ni) in neighbors.iter() {
+                for (nl, ni) in &neighbors {
                     if i != *ni {
                         graph.add_edge(*l, levels[&nl].data().as_sublevels()[i], ());
                     }

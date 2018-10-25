@@ -17,7 +17,10 @@ pub type SpaceGraph = UnGraphMap<ID, ()>;
 pub type SpaceMap<S> = HashMap<ID, Space<S>>;
 
 /// Trait that tells QDF how to simulate states of space.
-pub trait Simulate<S> where S: State {
+pub trait Simulate<S>
+where
+    S: State,
+{
     /// Performs simulation of state based on neighbor states.
     ///
     /// # Arguments
@@ -26,8 +29,13 @@ pub trait Simulate<S> where S: State {
     fn simulate(state: &S, neighbor_states: &[&S]) -> S;
 }
 
-impl<S> Simulate<S> for () where S: State {
-    fn simulate(state: &S, _: &[&S]) -> S { state.clone() }
+impl<S> Simulate<S> for ()
+where
+    S: State,
+{
+    fn simulate(state: &S, _: &[&S]) -> S {
+        state.clone()
+    }
 }
 
 /// Object that represents quantized density fields.
@@ -446,7 +454,10 @@ where
     /// Performs simulation step (go through all platonic spaces and modifies its states based on
     /// neighbor states). Actual state simulation is performed by your struct that implements
     /// `Simulation` trait.
-    pub fn simulation_step<M>(&mut self) where M: Simulate<S> {
+    pub fn simulation_step<M>(&mut self)
+    where
+        M: Simulate<S>,
+    {
         let states = self.simulate_states::<M>();
         for (id, state) in states {
             self.spaces.get_mut(&id).unwrap().apply_state(state);
@@ -457,7 +468,10 @@ where
 
     /// Does the same as `simulation_step()` but in parallel manner (it may or may not increase
     /// simulation performance if simulation is very complex).
-    pub fn simulation_step_parallel<M>(&mut self) where M: Simulate<S> {
+    pub fn simulation_step_parallel<M>(&mut self)
+    where
+        M: Simulate<S>,
+    {
         let states = self.simulate_states_parallel::<M>();
         for (id, state) in states {
             self.spaces.get_mut(&id).unwrap().apply_state(state);
@@ -468,37 +482,46 @@ where
 
     /// Performs simulation on QDF like `simulation_step()` but instead of applying results to QDF,
     /// it returns simulated platonic space states along with their space ID.
-    pub fn simulate_states<M>(&self) -> Vec<(ID, S)> where M: Simulate<S> {
+    pub fn simulate_states<M>(&self) -> Vec<(ID, S)>
+    where
+        M: Simulate<S>,
+    {
         self.spaces
             .iter()
-            .filter_map(|(id, space)| if space.is_platonic() {
-                let neighbor_states = self.graph
-                    .neighbors(*id)
-                    .map(|i| self.spaces[&i].state())
-                    .collect::<Vec<&S>>();
-                Some((*id, M::simulate(space.state(), &neighbor_states)))
-            } else {
-                None
-            })
-            .collect()
+            .filter_map(|(id, space)| {
+                if space.is_platonic() {
+                    let neighbor_states = self
+                        .graph
+                        .neighbors(*id)
+                        .map(|i| self.spaces[&i].state())
+                        .collect::<Vec<&S>>();
+                    Some((*id, M::simulate(space.state(), &neighbor_states)))
+                } else {
+                    None
+                }
+            }).collect()
     }
 
     /// Performs simulation on QDF like `simulation_step_parallel()` but instead of applying
     /// results to QDF, it returns simulated platonic space states along with their space ID.
-    pub fn simulate_states_parallel<M>(&self) -> Vec<(ID, S)> where M: Simulate<S> {
+    pub fn simulate_states_parallel<M>(&self) -> Vec<(ID, S)>
+    where
+        M: Simulate<S>,
+    {
         self.spaces
             .iter()
-            .filter_map(|(id, space)| if space.is_platonic() {
-                let neighbor_states = self
-                    .graph
-                    .neighbors(*id)
-                    .map(|i| self.spaces[&i].state())
-                    .collect::<Vec<&S>>();
-                Some((*id, space.state(), neighbor_states))
-            } else {
-                None
-            })
-            .collect::<Vec<(ID, &S, Vec<&S>)>>()
+            .filter_map(|(id, space)| {
+                if space.is_platonic() {
+                    let neighbor_states = self
+                        .graph
+                        .neighbors(*id)
+                        .map(|i| self.spaces[&i].state())
+                        .collect::<Vec<&S>>();
+                    Some((*id, space.state(), neighbor_states))
+                } else {
+                    None
+                }
+            }).collect::<Vec<(ID, &S, Vec<&S>)>>()
             .par_iter()
             .map(|(id, state, neighbor_states)| (*id, M::simulate(state, &neighbor_states)))
             .collect()
