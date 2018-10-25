@@ -469,9 +469,11 @@ where
     ) {
         let mut level = levels[&id].clone();
         if level.level() < count {
-            let substate = level.state().subdivide(subdivisions);
-            let sublevels = (0..subdivisions)
-                .map(|idx| {
+            let substates = level.state().subdivide(subdivisions);
+            let sublevels = substates
+                .iter()
+                .enumerate()
+                .map(|(idx, substate)| {
                     let i = ID::new();
                     graph.add_node(i);
                     Level::new(i, Some(id), level.level() + 1, idx, substate.clone())

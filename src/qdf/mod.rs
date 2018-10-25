@@ -239,10 +239,10 @@ where
     #[inline]
     pub fn set_space_state(&mut self, id: ID, state: S) -> Result<()> {
         if self.space_exists(id) {
-            let substate = state.subdivide(self.dimensions + 1);
+            let substates = state.subdivide(self.dimensions + 1);
             let mut space = self.spaces[&id].clone();
             space.apply_state(state);
-            for s in space.subspace() {
+            for (s, substate) in space.subspace().iter().zip(substates.iter()) {
                 self.set_space_state(*s, substate.clone())?;
             }
             let mut parent = space.parent();
@@ -337,9 +337,10 @@ where
                 }
             } else {
                 let subs = self.dimensions + 1;
-                let substate = space.state().subdivide(subs);
-                let spaces = (0..subs)
-                    .map(|_| Space::with_id_parent_state(ID::new(), id, substate.clone()))
+                let substates = space.state().subdivide(subs);
+                let spaces = substates
+                    .iter()
+                    .map(|substate| Space::with_id_parent_state(ID::new(), id, substate.clone()))
                     .collect::<Vec<Space<S>>>();
                 let subspace = spaces.iter().map(|s| s.id()).collect::<Vec<ID>>();
 

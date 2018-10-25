@@ -19,11 +19,11 @@ fn test_2d() {
     let space = qdf.space(root).clone();
     assert_eq!(space.subspace().len(), 3);
     let subspace = space.subspace();
-    let substate = space.state().subdivide(3);
-    assert_eq!(substate, 3);
-    assert_eq!(*qdf.space(subspace[0]).state(), substate);
-    assert_eq!(*qdf.space(subspace[1]).state(), substate);
-    assert_eq!(*qdf.space(subspace[2]).state(), substate);
+    let substates = space.state().subdivide(3);
+    assert_eq!(substates, vec![3, 3, 3]);
+    assert_eq!(*qdf.space(subspace[0]).state(), substates[0]);
+    assert_eq!(*qdf.space(subspace[1]).state(), substates[1]);
+    assert_eq!(*qdf.space(subspace[2]).state(), substates[2]);
     assert_eq!(
         qdf.find_space_neighbors(subspace[0]).unwrap(),
         vec![subspace[1], subspace[2]]
@@ -41,8 +41,8 @@ fn test_2d() {
     qdf.increase_space_density(root2).unwrap();
     let space2 = qdf.space(root2).clone();
     let subspace2 = space2.subspace();
-    let substate2 = space2.state().subdivide(3);
-    assert_eq!(substate2, 1);
+    let substates2 = space2.state().subdivide(3);
+    assert_eq!(substates2, vec![1, 1, 1]);
     assert_eq!(
         qdf.find_space_neighbors(subspace2[0]).unwrap(),
         vec![subspace2[1], subspace2[2], subspace[1]]
