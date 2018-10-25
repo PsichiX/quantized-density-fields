@@ -9,7 +9,7 @@ Rust implementation of Quantized Density Fields data structure.
 Record in `Cargo.toml`:
 ```toml
 [dependencies]
-quantized-density-fields = "0.1.5"
+quantized-density-fields = "0.1.9"
 ```
 
 Your crate module:
