@@ -127,6 +127,16 @@ fn test_2d() {
     qdf.decrease_space_density(root).unwrap();
     let space = qdf.space(root).clone();
     assert_eq!(space.subspace().len(), 0);
+
+    {
+        let mut qdf = QDF::new(2, 1);
+        let root = qdf.root();
+        increase_space_density(&mut qdf, root, 10).unwrap();
+        for id in &qdf.platonic_spaces {
+            let len = qdf.find_space_neighbors(*id).unwrap().len();
+            assert!(len > 0 && len <= 3);
+        }
+    }
 }
 
 // #[bench]
@@ -160,14 +170,14 @@ fn test_2d() {
 //     increase_space_density(&mut qdf, root, 10).unwrap();
 //     b.iter(|| qdf.simulation_step_parallel::<()>());
 // }
-//
-// fn increase_space_density(qdf: &mut QDF<i32>, id: ID, depth: usize) -> Result<()> {
-//     if depth > 0 {
-//         qdf.increase_space_density(id)?;
-//         let space = qdf.space(id).clone();
-//         for id in space.subspace() {
-//             increase_space_density(qdf, *id, depth - 1)?;
-//         }
-//     }
-//     Ok(())
-// }
+
+fn increase_space_density(qdf: &mut QDF<i32>, id: ID, depth: usize) -> Result<()> {
+    if depth > 0 {
+        qdf.increase_space_density(id)?;
+        let space = qdf.space(id).clone();
+        for id in space.subspace() {
+            increase_space_density(qdf, *id, depth - 1)?;
+        }
+    }
+    Ok(())
+}
