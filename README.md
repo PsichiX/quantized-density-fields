@@ -9,7 +9,7 @@ Rust implementation of Quantized Density Fields data structure.
 Record in `Cargo.toml`:
 ```toml
 [dependencies]
-quantized-density-fields = "0.1.9"
+quantized-density-fields = "0.2.1"
 ```
 
 Your crate module:
@@ -21,13 +21,10 @@ extern crate quantized_density_fields;
 use quantized_density_fields::QDF;
 
 // create 2D space with `9` as state of whole universe.
-let mut qdf = QDF::new(2, 9);
-let id = qdf.root();
+let (mut qdf, root) = QDF::new(2, 9);
 // increase root space density (2D space is subdivided into 3 children chunks).
-qdf.increase_space_density(id);
-let subs = qdf.space(qdf.root()).subspace().to_vec();
-qdf.increase_space_density(subs[0]);
-let subs2 = qdf.space(subs[0]).subspace();
+let subs = qdf.increase_space_density(root).unwrap();
+let subs2 = qdf.increase_space_density(subs[0]).unwrap();
 // find shortest path between two platonic spaces.
 assert_eq!(qdf.find_path(subs2[0], subs[2]).unwrap(), vec![subs2[0], subs2[1], subs[2]]);
 ```
