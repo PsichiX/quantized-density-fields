@@ -7,7 +7,8 @@ use id::*;
 use petgraph::algo::astar;
 use petgraph::graphmap::UnGraphMap;
 use qdf::*;
-use std::collections::HashMap;
+use rayon::prelude::*;
+use std::collections::{HashMap, HashSet};
 
 /// Object that represents space level of details.
 /// This gives you the ability to sample space area states at different zoom levels (LOD mechanism).
@@ -19,7 +20,7 @@ where
     id: ID,
     graph: UnGraphMap<ID, ()>,
     levels: HashMap<ID, Level<S>>,
-    fields: HashMap<ID, QDF<S>>,
+    platonic_levels: HashSet<ID>,
     root: ID,
     dimensions: usize,
     count: usize,
@@ -44,32 +45,26 @@ where
     /// let lod = LOD::new(2, 1, 16);
     /// assert_eq!(*lod.state(), 16);
     /// // LOD has 4 children level objects.
-    /// assert_eq!(lod.level(lod.root()).data().as_sublevels().len(), 4);
+    /// assert_eq!(lod.level(lod.root()).sublevels().len(), 4);
     /// // sampled state at level 1 equals to `4` (`16 / 4`).
-    /// assert_eq!(*lod.level(lod.level(lod.root()).data().as_sublevels()[0]).state(), 4);
+    /// assert_eq!(*lod.level(lod.level(lod.root()).sublevels()[0]).state(), 4);
     /// ```
     pub fn new(dimensions: usize, count: usize, root_state: S) -> Self {
         let mut graph = UnGraphMap::new();
         let mut levels = HashMap::new();
-        let mut fields = HashMap::new();
+        let mut platonic_levels = HashSet::new();
         let root = ID::new();
         let main = Level::new(root, None, 0, 0, root_state);
         levels.insert(root, main);
         graph.add_node(root);
-        Self::subdivide_level(
-            root,
-            &mut graph,
-            &mut levels,
-            &mut fields,
-            dimensions + 2,
-            count,
-        );
+        Self::subdivide_level(root, &mut graph, &mut levels, dimensions + 2, count);
         Self::connect_clusters(root, &mut graph, &levels);
+        Self::collect_platonic_levels(root, &levels, &mut platonic_levels);
         Self {
             id: ID::new(),
             graph,
             levels,
-            fields,
+            platonic_levels,
             root,
             dimensions,
             count,
@@ -205,144 +200,49 @@ where
         &self.levels[&id]
     }
 
-    /// Tells if QDF with given id exists in LOD.
+    /// Try to set given level state.
     ///
     /// # Arguments
-    /// * `id` - QDF id.
+    /// * `id` - level id.
+    /// * `state` - state.
     ///
     /// # Examples
     /// ```
     /// use quantized_density_fields::LOD;
     ///
-    /// let lod = LOD::new(2, 0, 16);
-    /// assert!(lod.field_exists(lod.level(lod.root()).data().as_field()));
+    /// let mut lod = LOD::new(2, 1, 9);
+    /// let id = lod.root();
+    /// assert!(lod.try_set_level_state(id, 3));
     /// ```
     #[inline]
-    pub fn field_exists(&self, id: ID) -> bool {
-        self.fields.contains_key(&id)
+    pub fn try_set_level_state(&mut self, id: ID, state: S) -> bool {
+        self.set_level_state(id, state).is_ok()
     }
 
-    /// Try to get QDF with given id.
+    /// Set given level state or throw error if level does not exists.
     ///
     /// # Arguments
-    /// * `id` - QDF id.
+    /// * `id` - level id.
+    /// * `state` - state.
     ///
     /// # Examples
     /// ```
     /// use quantized_density_fields::LOD;
     ///
-    /// let lod = LOD::new(2, 0, 16);
-    /// if let Some(qdf) = lod.try_get_field(lod.level(lod.root()).data().as_field()) {
-    ///     assert_eq!(*qdf.state(), 16);
-    /// }
+    /// let mut lod = LOD::new(2, 1, 9);
+    /// let id = lod.root();
+    /// assert!(lod.set_level_state(id, 3).is_ok());
     /// ```
     #[inline]
-    pub fn try_get_field(&self, id: ID) -> Option<&QDF<S>> {
-        self.fields.get(&id)
-    }
-
-    /// Try to get mutable QDF with given id.
-    ///
-    /// # Arguments
-    /// * `id` - QDF id.
-    ///
-    /// # Examples
-    /// ```
-    /// use quantized_density_fields::LOD;
-    ///
-    /// let mut lod = LOD::new(2, 0, 16);
-    /// let id = lod.level(lod.root()).data().as_field();
-    /// if let Some(qdf) = lod.try_get_field_mut(id) {
-    ///     qdf.set_space_state(id, 4);
-    /// }
-    /// ```
-    #[inline]
-    pub fn try_get_field_mut(&mut self, id: ID) -> Option<&mut QDF<S>> {
-        self.fields.get_mut(&id)
-    }
-
-    /// Gets QDF with given id and throws error if field does not exists.
-    ///
-    /// # Arguments
-    /// * `id` - QDF id.
-    ///
-    /// # Examples
-    /// ```
-    /// use quantized_density_fields::LOD;
-    ///
-    /// let lod = LOD::new(2, 0, 16);
-    /// if let Ok(qdf) = lod.get_field(lod.level(lod.root()).data().as_field()) {
-    ///     assert_eq!(*qdf.state(), 16);
-    /// }
-    /// ```
-    #[inline]
-    pub fn get_field(&self, id: ID) -> Result<&QDF<S>> {
-        if let Some(field) = self.fields.get(&id) {
-            Ok(field)
+    pub fn set_level_state(&mut self, id: ID, state: S) -> Result<()> {
+        if self.level_exists(id) {
+            self.levels.get_mut(&id).unwrap().apply_state(state);
+            self.recalculate_children_states(id);
+            self.recalculate_parent_state(id);
+            Ok(())
         } else {
-            Err(QDFError::FieldDoesNotExists(id))
+            Err(QDFError::LevelDoesNotExists(id))
         }
-    }
-
-    /// Gets mutable QDF with given id and throws error if field does not exists.
-    ///
-    /// # Arguments
-    /// * `id` - QDF id.
-    ///
-    /// # Examples
-    /// ```
-    /// use quantized_density_fields::LOD;
-    ///
-    /// let mut lod = LOD::new(2, 0, 16);
-    /// let id = lod.level(lod.root()).data().as_field();
-    /// if let Ok(qdf) = lod.get_field_mut(id) {
-    ///     qdf.set_space_state(id, 4);
-    /// }
-    /// ```
-    #[inline]
-    pub fn get_field_mut(&mut self, id: ID) -> Result<&mut QDF<S>> {
-        if let Some(field) = self.fields.get_mut(&id) {
-            Ok(field)
-        } else {
-            Err(QDFError::FieldDoesNotExists(id))
-        }
-    }
-
-    /// Gets QDF with given id and panics if field does not exists.
-    ///
-    /// # Arguments
-    /// * `id` - QDF id.
-    ///
-    /// # Examples
-    /// ```
-    /// use quantized_density_fields::LOD;
-    ///
-    /// let lod = LOD::new(2, 0, 16);
-    /// assert_eq!(*lod.field(lod.level(lod.root()).data().as_field()).state(), 16);
-    /// ```
-    #[inline]
-    pub fn field(&self, id: ID) -> &QDF<S> {
-        &self.fields[&id]
-    }
-
-    /// Gets mutable QDF with given id and panics if field does not exists.
-    ///
-    /// # Arguments
-    /// * `id` - QDF id.
-    ///
-    /// # Examples
-    /// ```
-    /// use quantized_density_fields::LOD;
-    ///
-    /// let mut lod = LOD::new(2, 0, 16);
-    /// let id = lod.level(lod.root()).data().as_field();
-    /// let mut qdf = lod.field_mut(id);
-    /// let id = qdf.root();
-    /// qdf.set_space_state(id, 4);
-    /// ```
-    #[inline]
-    pub fn field_mut(&mut self, id: ID) -> &mut QDF<S> {
-        self.fields.get_mut(&id).unwrap()
     }
 
     /// Gets list of space level neighbors IDs or throws error if level does not exists.
@@ -355,7 +255,7 @@ where
     /// use quantized_density_fields::LOD;
     ///
     /// let lod = LOD::new(2, 1, 16);
-    /// let subs = lod.level(lod.root()).data().as_sublevels();
+    /// let subs = lod.level(lod.root()).sublevels();
     /// assert_eq!(lod.find_level_neighbors(subs[0]).unwrap(), vec![subs[1], subs[2], subs[3]]);
     /// ```
     #[inline]
@@ -379,7 +279,7 @@ where
     /// use quantized_density_fields::LOD;
     ///
     /// let lod = LOD::new(2, 1, 16);
-    /// let subs = lod.level(lod.root()).data().as_sublevels();
+    /// let subs = lod.level(lod.root()).sublevels();
     /// assert_eq!(lod.find_path(subs[1], subs[3]).unwrap(), vec![subs[1], subs[0], subs[3]]);
     /// ```
     pub fn find_path(&self, from: ID, to: ID) -> Result<Vec<ID>> {
@@ -396,83 +296,79 @@ where
         }
     }
 
-    /// Updates LOD states.
-    ///
-    /// # Examples
-    /// ```
-    /// use quantized_density_fields::LOD;
-    ///
-    /// let mut lod = LOD::new(2, 1, 16);
-    /// let id = {
-    ///     let level = lod.level(lod.root()).clone();
-    ///     let subs = level.data().as_sublevels();
-    ///     let level = lod.level(subs[0]).clone();
-    ///     level.data().as_field()
-    /// };
-    /// {
-    ///     let mut qdf = lod.field_mut(id);
-    ///     let id = qdf.root();
-    ///     qdf.set_space_state(id, 8);
-    /// }
-    /// lod.recalculate_state();
-    /// assert_eq!(*lod.state(), 20);
-    /// ```
-    pub fn recalculate_state(&mut self) -> Result<S> {
-        let id = self.root;
-        self.recalculate_level_state(id)
-    }
-
-    /// Simulate underlying QDF objects. See more: `QDF::simulation_step()`.
-    pub fn simulation_step<M>(&mut self) -> Result<S>
+    /// Performs simulation step (go through all platonic spaces and modifies its states based on
+    /// neighbor states). Actual state simulation is performed by your struct that implements
+    /// `Simulation` trait.
+    pub fn simulation_step<M>(&mut self)
     where
         M: Simulate<S>,
     {
-        for field in self.fields.values_mut() {
-            field.simulation_step::<M>();
+        let states = self.simulate_states::<M>();
+        for (id, state) in states {
+            self.levels.get_mut(&id).unwrap().apply_state(state);
         }
-        self.recalculate_state()
+        let root = self.root;
+        self.recalculate_states(root);
     }
 
-    /// Simulate underlying QDF objects in parallel manner.
-    /// See more: `QDF::simulation_step_parallel()`.
-    pub fn simulation_step_parallel<M>(&mut self) -> Result<S>
+    /// Does the same as `simulation_step()` but in parallel manner (it may or may not increase
+    /// simulation performance if simulation is very complex).
+    pub fn simulation_step_parallel<M>(&mut self)
     where
         M: Simulate<S>,
     {
-        for field in self.fields.values_mut() {
-            field.simulation_step_parallel::<M>();
+        let states = self.simulate_states_parallel::<M>();
+        for (id, state) in states {
+            self.levels.get_mut(&id).unwrap().apply_state(state);
         }
-        self.recalculate_state()
+        let root = self.root;
+        self.recalculate_states(root);
     }
 
-    fn recalculate_level_state(&mut self, id: ID) -> Result<S> {
-        if !self.level_exists(id) {
-            return Err(QDFError::LevelDoesNotExists(id));
-        }
-        let mut level = self.levels[&id].clone();
-        let state = match level.data() {
-            LevelData::SubLevels(sublevels) => {
-                let states = sublevels
-                    .iter()
-                    .map(|l| self.recalculate_level_state(*l))
-                    .collect::<Result<Vec<S>>>()?;
-                State::merge(&states)
-            }
-            LevelData::Field(field) => self.fields[field].state().clone(),
-        };
-        level.apply_state(state.clone());
-        self.levels.insert(id, level);
-        Ok(state)
+    /// Performs simulation on LOD like `simulation_step()` but instead of applying results to LOD,
+    /// it returns simulated platonic level states along with their level ID.
+    pub fn simulate_states<M>(&self) -> Vec<(ID, S)>
+    where
+        M: Simulate<S>,
+    {
+        self.platonic_levels
+            .iter()
+            .map(|id| {
+                let neighbor_states = self
+                    .graph
+                    .neighbors(*id)
+                    .map(|i| self.levels[&i].state())
+                    .collect::<Vec<&S>>();
+                (*id, M::simulate(self.levels[id].state(), &neighbor_states))
+            }).collect()
+    }
+
+    /// Performs simulation on LOD like `simulation_step_parallel()` but instead of applying
+    /// results to LOD, it returns simulated platonic level states along with their level ID.
+    pub fn simulate_states_parallel<M>(&self) -> Vec<(ID, S)>
+    where
+        M: Simulate<S>,
+    {
+        self.platonic_levels
+            .par_iter()
+            .map(|id| {
+                let neighbor_states = self
+                    .graph
+                    .neighbors(*id)
+                    .map(|i| self.levels[&i].state())
+                    .collect::<Vec<&S>>();
+                (*id, M::simulate(self.levels[id].state(), &neighbor_states))
+            }).collect()
     }
 
     fn subdivide_level(
         id: ID,
         graph: &mut UnGraphMap<ID, ()>,
         levels: &mut HashMap<ID, Level<S>>,
-        fields: &mut HashMap<ID, QDF<S>>,
         subdivisions: usize,
         count: usize,
     ) {
+        // TODO: optimize!
         let mut level = levels[&id].clone();
         if level.level() < count {
             let substates = level.state().subdivide(subdivisions);
@@ -488,25 +384,19 @@ where
             for l in sublevels.iter().skip(1) {
                 graph.add_edge(first, l.id(), ());
             }
-            level.apply_data(LevelData::SubLevels(
-                sublevels.iter().map(|l| l.id()).collect(),
-            ));
+            level.apply_sublevels(sublevels.iter().map(|l| l.id()).collect());
             for l in sublevels {
                 let i = l.id();
                 levels.insert(i, l);
-                Self::subdivide_level(i, graph, levels, fields, subdivisions, count);
+                Self::subdivide_level(i, graph, levels, subdivisions, count);
             }
-        } else {
-            let qdf = QDF::new(subdivisions - 2, level.state().clone());
-            level.apply_data(LevelData::Field(qdf.id()));
-            fields.insert(qdf.id(), qdf);
+            levels.insert(id, level);
         }
-        levels.insert(id, level);
     }
 
     fn connect_clusters(id: ID, graph: &mut UnGraphMap<ID, ()>, levels: &HashMap<ID, Level<S>>) {
-        let level = levels[&id].clone();
-        if let LevelData::SubLevels(sublevels) = level.data() {
+        let sublevels = levels[&id].sublevels();
+        if !sublevels.is_empty() {
             let neighbors = graph
                 .neighbors(id)
                 .map(|i| (i, levels[&i].index()))
@@ -514,13 +404,69 @@ where
             for (i, l) in sublevels.iter().enumerate().skip(1) {
                 for (nl, ni) in &neighbors {
                     if i != *ni {
-                        graph.add_edge(*l, levels[&nl].data().as_sublevels()[i], ());
+                        graph.add_edge(*l, levels[&nl].sublevels()[i], ());
                     }
                 }
             }
             for l in sublevels.iter().skip(1) {
                 Self::connect_clusters(*l, graph, levels);
             }
+        }
+    }
+
+    fn collect_platonic_levels(
+        id: ID,
+        levels: &HashMap<ID, Level<S>>,
+        platonic_levels: &mut HashSet<ID>,
+    ) {
+        let sublevels = levels[&id].sublevels();
+        if sublevels.is_empty() {
+            platonic_levels.insert(id);
+        } else {
+            for id in sublevels {
+                Self::collect_platonic_levels(*id, levels, platonic_levels);
+            }
+        }
+    }
+
+    fn recalculate_states(&mut self, id: ID) -> S {
+        let level = self.levels[&id].clone();
+        if level.sublevels().is_empty() {
+            level.state().clone()
+        } else {
+            let states = level
+                .sublevels()
+                .iter()
+                .map(|i| self.recalculate_states(*i))
+                .collect::<Vec<S>>();
+            let state = State::merge(&states);
+            self.levels.get_mut(&id).unwrap().apply_state(state.clone());
+            state
+        }
+    }
+
+    fn recalculate_children_states(&mut self, id: ID) {
+        let level = self.levels[&id].clone();
+        let states = level.state().subdivide(self.dimensions + 2);
+        for (id, state) in level.sublevels().iter().zip(states.into_iter()) {
+            self.levels.get_mut(&id).unwrap().apply_state(state);
+            self.recalculate_children_states(*id);
+        }
+    }
+
+    fn recalculate_parent_state(&mut self, id: ID) {
+        if let Some(id) = self.levels[&id].parent() {
+            let level = self.levels[&id].clone();
+            let states = level
+                .sublevels()
+                .iter()
+                .map(|i| self.levels[i].state().clone())
+                .collect::<Vec<S>>();
+            self.levels
+                .get_mut(&id)
+                .unwrap()
+                .apply_state(State::merge(&states));
+            self.recalculate_parent_state(id);
         }
     }
 }

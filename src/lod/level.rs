@@ -1,87 +1,6 @@
 use id::ID;
 use qdf::state::State;
 
-/// Describes level data.
-#[derive(Debug, Clone)]
-pub enum LevelData {
-    /// Level contains sublevels.
-    SubLevels(Vec<ID>),
-    /// Level contains QDF.
-    Field(ID),
-}
-
-impl LevelData {
-    /// Tells if level contains sublevels.
-    ///
-    /// # Examples
-    /// ```
-    /// use quantized_density_fields::LOD;
-    ///
-    /// let lod = LOD::new(2, 1, 16);
-    /// assert!(lod.level(lod.root()).data().is_sublevels());
-    /// ```
-    #[inline]
-    pub fn is_sublevels(&self) -> bool {
-        match self {
-            LevelData::SubLevels(_) => true,
-            _ => false,
-        }
-    }
-
-    /// Tells if level contains QDF.
-    ///
-    /// # Examples
-    /// ```
-    /// use quantized_density_fields::LOD;
-    ///
-    /// let lod = LOD::new(2, 0, 16);
-    /// assert!(lod.level(lod.root()).data().is_field());
-    /// ```
-    #[inline]
-    pub fn is_field(&self) -> bool {
-        match self {
-            LevelData::Field(_) => true,
-            _ => false,
-        }
-    }
-
-    /// Gets sublevels or panics if does not contains sublevels.
-    ///
-    /// # Examples
-    /// ```
-    /// use quantized_density_fields::LOD;
-    ///
-    /// let lod = LOD::new(2, 1, 16);
-    /// assert_eq!(lod.level(lod.root()).data().as_sublevels().len(), 4);
-    /// ```
-    #[inline]
-    pub fn as_sublevels(&self) -> &[ID] {
-        if let LevelData::SubLevels(sublevels) = self {
-            sublevels
-        } else {
-            panic!("LevelData does not contains sublevels: {:?}", self);
-        }
-    }
-
-    /// Gets QDF or panics if does not contains QDF.
-    ///
-    /// # Examples
-    /// ```
-    /// use quantized_density_fields::LOD;
-    ///
-    /// let lod = LOD::new(2, 0, 16);
-    /// assert_eq!(*lod.field(lod.level(lod.root()).data().as_field()).state(), 16);
-    /// ```
-    #[inline]
-    pub fn as_field(&self) -> ID {
-        if let LevelData::Field(id) = self {
-            *id
-        } else {
-            panic!("LevelData does not contains field: {:?}", self);
-        }
-    }
-}
-
 /// Holds information about space level.
 #[derive(Debug, Clone)]
 pub struct Level<S>
@@ -93,7 +12,7 @@ where
     level: usize,
     index: usize,
     state: S,
-    data: LevelData,
+    sublevels: Vec<ID>,
 }
 
 impl<S> Level<S>
@@ -108,7 +27,7 @@ where
             level,
             index,
             state,
-            data: LevelData::SubLevels(vec![]),
+            sublevels: vec![],
         }
     }
 
@@ -142,19 +61,19 @@ where
         &self.state
     }
 
-    /// Gets level data.
+    /// Gets level sublevels.
     #[inline]
-    pub fn data(&self) -> &LevelData {
-        &self.data
+    pub fn sublevels(&self) -> &[ID] {
+        &self.sublevels
     }
 
     #[inline]
-    pub(crate) fn apply_state(&mut self, state: S) {
+    pub fn apply_state(&mut self, state: S) {
         self.state = state;
     }
 
     #[inline]
-    pub(crate) fn apply_data(&mut self, data: LevelData) {
-        self.data = data;
+    pub(crate) fn apply_sublevels(&mut self, sublevels: Vec<ID>) {
+        self.sublevels = sublevels;
     }
 }

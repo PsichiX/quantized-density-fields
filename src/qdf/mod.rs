@@ -1,7 +1,9 @@
+pub mod simulate;
 pub mod space;
 pub mod state;
 mod tests;
 
+pub use self::simulate::*;
 pub use self::space::*;
 pub use self::state::*;
 use error::*;
@@ -9,34 +11,13 @@ use id::*;
 use petgraph::algo::astar;
 use petgraph::graphmap::UnGraphMap;
 use rayon::prelude::*;
+use std::collections::hash_set::Iter;
 use std::collections::{HashMap, HashSet};
 
 /// Short hand type alias for space graph.
 pub type SpaceGraph = UnGraphMap<ID, ()>;
 /// Short hand type alias for space map.
 pub type SpaceMap<S> = HashMap<ID, Space<S>>;
-
-/// Trait that tells QDF how to simulate states of space.
-pub trait Simulate<S>
-where
-    S: State,
-{
-    /// Performs simulation of state based on neighbor states.
-    ///
-    /// # Arguments
-    /// * `state` - current state.
-    /// * `neighbor_states` - current neighbor states.
-    fn simulate(state: &S, neighbor_states: &[&S]) -> S;
-}
-
-impl<S> Simulate<S> for ()
-where
-    S: State,
-{
-    fn simulate(state: &S, _: &[&S]) -> S {
-        state.clone()
-    }
-}
 
 /// Object that represents quantized density fields.
 ///
@@ -58,8 +39,7 @@ where
     id: ID,
     graph: SpaceGraph,
     spaces: SpaceMap<S>,
-    platonic_spaces: HashSet<ID>,
-    root: ID,
+    space_ids: HashSet<ID>,
     dimensions: usize,
 }
 
@@ -67,7 +47,7 @@ impl<S> QDF<S>
 where
     S: State,
 {
-    /// Creates new QDF information universe.
+    /// Creates new QDF information universe along with root space ID.
     ///
     /// # Arguments
     /// * `dimensions` - Number of dimensions which space contains.
@@ -78,25 +58,25 @@ where
     /// use quantized_density_fields::QDF;
     ///
     /// // Creates 2d space with `16` as root state.
-    /// let qdf = QDF::new(2, 9);
-    /// assert_eq!(*qdf.state(), 9);
+    /// let (qdf, root) = QDF::new(2, 9);
+    /// assert_eq!(*qdf.space(root).state(), 9);
     /// ```
-    pub fn new(dimensions: usize, root_state: S) -> Self {
+    pub fn new(dimensions: usize, root_state: S) -> (Self, ID) {
         let mut graph = UnGraphMap::new();
         let mut spaces = HashMap::new();
-        let mut platonic_spaces = HashSet::new();
+        let mut space_ids = HashSet::new();
         let id = ID::new();
         graph.add_node(id);
-        spaces.insert(id, Space::with_id(id, root_state));
-        platonic_spaces.insert(id);
-        Self {
+        spaces.insert(id, Space::new(id, root_state));
+        space_ids.insert(id);
+        let qdf = Self {
             id: ID::new(),
             graph,
             spaces,
-            platonic_spaces,
-            root: id,
+            space_ids,
             dimensions,
-        }
+        };
+        (qdf, id)
     }
 
     /// Gets QDF id.
@@ -105,38 +85,18 @@ where
         self.id
     }
 
-    /// Gets QDF root space node id.
-    #[inline]
-    pub fn root(&self) -> ID {
-        self.root
-    }
-
     /// Gets QDF dimensions number.
     ///
     /// # Examples
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// let qdf = QDF::new(2, 9);
+    /// let (qdf, _) = QDF::new(2, 9);
     /// assert_eq!(qdf.dimensions(), 2);
     /// ```
     #[inline]
     pub fn dimensions(&self) -> usize {
         self.dimensions
-    }
-
-    /// Gets QDF dimensions number.
-    ///
-    /// # Examples
-    /// ```
-    /// use quantized_density_fields::QDF;
-    ///
-    /// let qdf = QDF::new(2, 9);
-    /// assert_eq!(*qdf.state(), 9);
-    /// ```
-    #[inline]
-    pub fn state(&self) -> &S {
-        self.spaces[&self.root].state()
     }
 
     /// Tells if space with given id exists in QDF.
@@ -148,12 +108,33 @@ where
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// let qdf = QDF::new(2, 9);
-    /// assert!(qdf.space_exists(qdf.root()));
+    /// let (qdf, root) = QDF::new(2, 9);
+    /// assert!(qdf.space_exists(root));
     /// ```
     #[inline]
     pub fn space_exists(&self, id: ID) -> bool {
         self.spaces.contains_key(&id)
+    }
+
+    /// Gets iterator over all spaces IDs.
+    ///
+    /// # Examples
+    /// ```
+    /// use quantized_density_fields::{QDF, ID};
+    ///
+    /// let (mut qdf, root) = QDF::new(2, 9);
+    /// assert_eq!(qdf.spaces().count(), 1);
+    /// assert_eq!(*qdf.spaces().nth(0).unwrap(), root);
+    /// let mut subs = qdf.increase_space_density(root).unwrap();
+    /// subs.sort();
+    /// assert_eq!(qdf.spaces().count(), 3);
+    /// let mut spaces = qdf.spaces().cloned().collect::<Vec<ID>>();
+    /// spaces.sort();
+    /// assert_eq!(spaces, subs);
+    /// ```
+    #[inline]
+    pub fn spaces(&self) -> Iter<ID> {
+        self.space_ids.iter()
     }
 
     /// Try to get given space.
@@ -165,8 +146,8 @@ where
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// let qdf = QDF::new(2, 9);
-    /// if let Some(space) = qdf.try_get_space(qdf.root()) {
+    /// let (qdf, root) = QDF::new(2, 9);
+    /// if let Some(space) = qdf.try_get_space(root) {
     ///     assert_eq!(*space.state(), 9);
     /// }
     /// ```
@@ -184,8 +165,8 @@ where
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// let qdf = QDF::new(2, 9);
-    /// if let Ok(space) = qdf.get_space(qdf.root()) {
+    /// let (qdf, root) = QDF::new(2, 9);
+    /// if let Ok(space) = qdf.get_space(root) {
     ///     assert_eq!(*space.state(), 9);
     /// }
     /// ```
@@ -207,8 +188,8 @@ where
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// let qdf = QDF::new(2, 9);
-    /// assert_eq!(*qdf.space(qdf.root()).state(), 9);
+    /// let (qdf, root) = QDF::new(2, 9);
+    /// assert_eq!(*qdf.space(root).state(), 9);
     /// ```
     #[inline]
     pub fn space(&self, id: ID) -> &Space<S> {
@@ -225,9 +206,8 @@ where
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// let mut qdf = QDF::new(2, 9);
-    /// let id = qdf.root();
-    /// assert!(qdf.try_set_space_state(id, 3));
+    /// let (mut qdf, root) = QDF::new(2, 9);
+    /// assert!(qdf.try_set_space_state(root, 3));
     /// ```
     #[inline]
     pub fn try_set_space_state(&mut self, id: ID, state: S) -> bool {
@@ -244,24 +224,13 @@ where
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// let mut qdf = QDF::new(2, 9);
-    /// let id = qdf.root();
-    /// assert!(qdf.set_space_state(id, 3).is_ok());
+    /// let (mut qdf, root) = QDF::new(2, 9);
+    /// assert!(qdf.set_space_state(root, 3).is_ok());
     /// ```
     #[inline]
     pub fn set_space_state(&mut self, id: ID, state: S) -> Result<()> {
         if self.space_exists(id) {
-            let substates = state.subdivide(self.dimensions + 1);
-            let mut space = self.spaces[&id].clone();
-            space.apply_state(state);
-            for (s, substate) in space.subspace().iter().zip(substates.iter()) {
-                self.set_space_state(*s, substate.clone())?;
-            }
-            let mut parent = space.parent();
-            self.spaces.insert(id, space);
-            while parent.is_some() {
-                parent = self.recalculate_state(parent.unwrap());
-            }
+            self.spaces.get_mut(&id).unwrap().apply_state(state);
             Ok(())
         } else {
             Err(QDFError::SpaceDoesNotExists(id))
@@ -277,10 +246,8 @@ where
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// let mut qdf = QDF::new(2, 9);
-    /// let id = qdf.root();
-    /// qdf.increase_space_density(id);
-    /// let subs = qdf.space(qdf.root()).subspace();
+    /// let (mut qdf, root) = QDF::new(2, 9);
+    /// let subs = qdf.increase_space_density(root).unwrap();
     /// assert_eq!(qdf.find_space_neighbors(subs[0]).unwrap(), vec![subs[1], subs[2]]);
     /// ```
     #[inline]
@@ -303,12 +270,9 @@ where
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// let mut qdf = QDF::new(2, 9);
-    /// let id = qdf.root();
-    /// qdf.increase_space_density(id);
-    /// let subs = qdf.space(qdf.root()).subspace().to_vec();
-    /// qdf.increase_space_density(subs[0]);
-    /// let subs2 = qdf.space(subs[0]).subspace();
+    /// let (mut qdf, root) = QDF::new(2, 9);
+    /// let subs = qdf.increase_space_density(root).unwrap();
+    /// let subs2 = qdf.increase_space_density(subs[0]).unwrap();
     /// assert_eq!(qdf.find_path(subs2[0], subs[2]).unwrap(), vec![subs2[0], subs2[1], subs[2]]);
     /// ```
     pub fn find_path(&self, from: ID, to: ID) -> Result<Vec<ID>> {
@@ -335,51 +299,42 @@ where
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// let mut qdf = QDF::new(2, 9);
-    /// let id = qdf.root();
-    /// qdf.increase_space_density(id);
-    /// assert_eq!(qdf.space(qdf.root()).subspace().len(), 3);
+    /// let (mut qdf, root) = QDF::new(2, 9);
+    /// let subs = qdf.increase_space_density(root).unwrap();
+    /// assert_eq!(subs.len(), 3);
     /// ```
-    pub fn increase_space_density(&mut self, id: ID) -> Result<()> {
+    pub fn increase_space_density(&mut self, id: ID) -> Result<Vec<ID>> {
         if self.space_exists(id) {
-            let mut space = self.spaces[&id].clone();
-            if !space.is_platonic() {
-                for s in space.subspace() {
-                    self.increase_space_density(*s)?;
-                }
-            } else {
-                let subs = self.dimensions + 1;
-                let substates = space.state().subdivide(subs);
-                let spaces = substates
-                    .iter()
-                    .map(|substate| Space::with_id_parent_state(ID::new(), id, substate.clone()))
-                    .collect::<Vec<Space<S>>>();
-                let subspace = spaces.iter().map(|s| s.id()).collect::<Vec<ID>>();
-
-                for s in spaces {
-                    let id = s.id();
-                    self.spaces.insert(id, s);
-                    self.graph.add_node(id);
-                }
-                for a in &subspace {
-                    for b in &subspace {
-                        if a != b {
-                            self.graph.add_edge(*a, *b, ());
-                        }
+            let space = self.spaces[&id].clone();
+            let subs = self.dimensions + 1;
+            let substates = space.state().subdivide(subs);
+            let spaces = substates
+                .iter()
+                .map(|substate| Space::new(ID::new(), substate.clone()))
+                .collect::<Vec<Space<S>>>();
+            for s in &spaces {
+                let id = s.id();
+                self.spaces.insert(id, s.clone());
+                self.graph.add_node(id);
+                self.space_ids.insert(id);
+            }
+            for a in &spaces {
+                let aid = a.id();
+                for b in &spaces {
+                    let bid = b.id();
+                    if aid != bid {
+                        self.graph.add_edge(aid, bid, ());
                     }
                 }
-                let neighbors = self.graph.neighbors(id).collect::<Vec<ID>>();
-                for (i, n) in neighbors.iter().enumerate() {
-                    self.graph.remove_edge(*n, id);
-                    self.graph.add_edge(*n, subspace[i], ());
-                    self.platonic_spaces.insert(*n);
-                }
-
-                self.platonic_spaces.remove(&id);
-                space.apply_subspace(subspace);
-                self.spaces.insert(id, space);
             }
-            Ok(())
+            let neighbors = self.graph.neighbors(id).collect::<Vec<ID>>();
+            for (i, n) in neighbors.iter().enumerate() {
+                self.graph.remove_edge(*n, id);
+                self.graph.add_edge(*n, spaces[i].id(), ());
+            }
+            self.space_ids.remove(&id);
+            self.spaces.remove(&id);
+            Ok(spaces.iter().map(|s| s.id()).collect())
         } else {
             Err(QDFError::SpaceDoesNotExists(id))
         }
@@ -396,65 +351,58 @@ where
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// let mut qdf = QDF::new(2, 9);
-    /// let id = qdf.root();
-    /// qdf.increase_space_density(id);
-    /// assert_eq!(qdf.space(qdf.root()).subspace().len(), 3);
-    /// qdf.decrease_space_density(id);
-    /// assert!(qdf.space(qdf.root()).is_platonic());
+    /// let (mut qdf, root) = QDF::new(2, 9);
+    /// let subs = qdf.increase_space_density(root).unwrap();
+    /// assert_eq!(subs.len(), 3);
+    /// let root = qdf.decrease_space_density(subs[0]).unwrap().unwrap();
+    /// assert_eq!(qdf.spaces().len(), 1);
+    /// assert_eq!(*qdf.spaces().nth(0).unwrap(), root);
     /// ```
-    pub fn decrease_space_density(&mut self, id: ID) -> Result<bool> {
+    pub fn decrease_space_density(&mut self, id: ID) -> Result<Option<ID>> {
         if self.space_exists(id) {
-            let mut space = self.spaces[&id].clone();
-            if space.is_platonic() {
-                Ok(true)
-            } else {
-                let merge = space
-                    .subspace()
-                    .iter()
-                    .map(|id| {
-                        if self.spaces[id].is_platonic() {
-                            Ok(true)
-                        } else {
-                            self.decrease_space_density(*id)
-                        }
-                    }).collect::<Result<Vec<bool>>>()?
-                    .iter()
-                    .all(|v| *v);
-                if merge {
-                    let neighbors = space
-                        .subspace()
+            let neighbor = self.graph.neighbors(id).collect::<Vec<ID>>();
+            let mut connected = neighbor
+                .iter()
+                .filter(|a| {
+                    neighbor
                         .iter()
-                        .flat_map(|s| self.graph.neighbors(*s).collect::<Vec<ID>>())
-                        .filter(|s| !space.subspace().contains(s))
+                        .any(|b| **a != *b && self.graph.edge_weight(**a, *b).is_some())
+                }).cloned()
+                .collect::<Vec<ID>>();
+            if connected.len() != self.dimensions {
+                Ok(None)
+            } else {
+                connected.push(id);
+                let states = connected
+                    .iter()
+                    .map(|i| self.spaces[&i].state())
+                    .cloned()
+                    .collect::<Vec<S>>();
+                let id = ID::new();
+                self.graph.add_node(id);
+                self.space_ids.insert(id);
+                self.spaces
+                    .insert(id, Space::new(id, State::merge(&states)));
+                for i in &connected {
+                    let outsiders = self
+                        .graph
+                        .neighbors(*i)
+                        .filter(|n| !connected.contains(n))
                         .collect::<Vec<ID>>();
-                    for n in neighbors {
+                    for n in outsiders {
                         self.graph.add_edge(id, n, ());
                     }
-                    for s in space.subspace() {
-                        self.graph.remove_node(*s);
-                        self.spaces.remove(s);
-                    }
-                    space.apply_subspace(vec![]);
-                    self.spaces.insert(id, space);
                 }
-                Ok(false)
+                for i in connected {
+                    self.graph.remove_node(i);
+                    self.spaces.remove(&i);
+                    self.space_ids.remove(&i);
+                }
+                Ok(Some(id))
             }
         } else {
             Err(QDFError::SpaceDoesNotExists(id))
         }
-    }
-
-    /// Decreases given space density (merge space children and rebind them properly to theirs
-    /// neighbors), or throws error if space does not exists. Basically it works like
-    /// `Self::decrease_space_density()` but merges space to make it completely platonic.
-    ///
-    /// # Arguments
-    /// * `id` - space id.
-    #[inline]
-    pub fn decrease_space_density_level(&mut self, id: ID) -> Result<()> {
-        while !self.decrease_space_density(id)? {}
-        Ok(())
     }
 
     /// Performs simulation step (go through all platonic spaces and modifies its states based on
@@ -468,8 +416,6 @@ where
         for (id, state) in states {
             self.spaces.get_mut(&id).unwrap().apply_state(state);
         }
-        let root = self.root;
-        self.recalculate_state_downward(root);
     }
 
     /// Does the same as `simulation_step()` but in parallel manner (it may or may not increase
@@ -482,8 +428,6 @@ where
         for (id, state) in states {
             self.spaces.get_mut(&id).unwrap().apply_state(state);
         }
-        let root = self.root;
-        self.recalculate_state_downward(root);
     }
 
     /// Performs simulation on QDF like `simulation_step()` but instead of applying results to QDF,
@@ -492,7 +436,7 @@ where
     where
         M: Simulate<S>,
     {
-        self.platonic_spaces
+        self.space_ids
             .iter()
             .map(|id| {
                 let neighbor_states = self
@@ -510,7 +454,7 @@ where
     where
         M: Simulate<S>,
     {
-        self.platonic_spaces
+        self.space_ids
             .par_iter()
             .map(|id| {
                 let neighbor_states = self
@@ -520,35 +464,5 @@ where
                     .collect::<Vec<&S>>();
                 (*id, M::simulate(self.spaces[id].state(), &neighbor_states))
             }).collect()
-    }
-
-    fn recalculate_state(&mut self, id: ID) -> Option<ID> {
-        let mut space = self.spaces[&id].clone();
-        let states = space
-            .subspace()
-            .iter()
-            .map(|s| self.spaces[&s].state().clone())
-            .collect::<Vec<S>>();
-        space.apply_state(State::merge(&states));
-        let parent = space.parent();
-        self.spaces.insert(id, space);
-        parent
-    }
-
-    fn recalculate_state_downward(&mut self, id: ID) {
-        let mut space = self.spaces[&id].clone();
-        if !space.is_platonic() {
-            for id in space.subspace() {
-                self.recalculate_state_downward(*id);
-            }
-            let states = space
-                .subspace()
-                .iter()
-                .map(|id| self.spaces[&id].state().clone())
-                .collect::<Vec<S>>();
-            let state = State::merge(&states);
-            space.apply_state(state.clone());
-            self.spaces.insert(id, space);
-        }
     }
 }
