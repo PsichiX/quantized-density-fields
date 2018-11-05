@@ -35,6 +35,18 @@ pub trait State: Sized + Clone + Default + Send + Sync + Debug {
     /// # Arguments
     /// * `states` - list of source data to merge.
     fn merge(states: &[Self]) -> Self;
+    /// Multiply and merge multiple instances of itself into one super state.
+    ///
+    /// # Arguments
+    /// * `dimensions` - number of dimensions.
+    /// * `level` - number level at which you merge.
+    fn super_state_at_level(&self, dimensions: usize, level: usize) -> Self {
+        let states = std::iter::repeat(self.clone())
+            .take((dimensions + 1)
+            .pow(level as u32))
+            .collect::<Vec<Self>>();
+        Self::merge(&states)
+    }
 }
 
 impl State for i8 {

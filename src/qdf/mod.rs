@@ -47,27 +47,30 @@ impl<S> QDF<S>
 where
     S: State,
 {
-    /// Creates new QDF information universe along with root space ID.
+    /// Creates new QDF information universe.
     ///
     /// # Arguments
-    /// * `dimensions` - Number of dimensions which space contains.
-    /// * `root_state` - State of root space.
+    /// * `dimensions` - Number of dimensions space contains.
+    /// * `state` - State of space.
+    ///
+    /// # Returns
+    /// Tuple of new QDF object and space id.
     ///
     /// # Examples
     /// ```
     /// use quantized_density_fields::QDF;
     ///
-    /// // Creates 2d space with `16` as root state.
+    /// // Creates 2d space with `9` as root state.
     /// let (qdf, root) = QDF::new(2, 9);
     /// assert_eq!(*qdf.space(root).state(), 9);
     /// ```
-    pub fn new(dimensions: usize, root_state: S) -> (Self, ID) {
+    pub fn new(dimensions: usize, state: S) -> (Self, ID) {
         let mut graph = UnGraphMap::new();
         let mut spaces = HashMap::new();
         let mut space_ids = HashSet::new();
         let id = ID::new();
         graph.add_node(id);
-        spaces.insert(id, Space::new(id, root_state));
+        spaces.insert(id, Space::new(id, state));
         space_ids.insert(id);
         let qdf = Self {
             id: ID::new(),
@@ -79,6 +82,74 @@ where
         (qdf, id)
     }
 
+    /// Creates new QDF information universe and increase its levels of density.
+    ///
+    /// # Arguments
+    /// * `dimensions` - Number of dimensions which space contains.
+    /// * `state` - State of space.
+    /// * `levels` - Number of levels of uniform density.
+    ///
+    /// # Returns
+    /// Tuple of new QDF object and vector of space ids.
+    ///
+    /// # Examples
+    /// ```
+    /// use quantized_density_fields::{QDF, State};
+    ///
+    /// // Creates 2d space with `27` as root state and 2 levels of uniform density.
+    /// let (qdf, spaces) = QDF::with_levels(2, 27, 2);
+    /// assert_eq!(spaces.len(), (qdf.dimensions() + 1).pow(2));
+    /// assert_eq!(*qdf.space(spaces[0]).state(), 3);
+    /// assert_eq!(
+    ///     State::merge(&qdf.spaces().map(|id| *qdf.space(*id).state()).collect::<Vec<i32>>()),
+    ///     27,
+    /// );
+    /// ```
+    pub fn with_levels(dimensions: usize, state: S, levels: usize) -> (Self, Vec<ID>) {
+        let (mut qdf, _) = Self::new(dimensions, state);
+        for _ in 0..levels {
+            let spaces = qdf.spaces().cloned().collect::<Vec<ID>>();
+            for id in spaces {
+                qdf.increase_space_density(id).unwrap();
+            }
+        }
+        let spaces = qdf.spaces().cloned().collect();
+        (qdf, spaces)
+    }
+
+    /// Creates new QDF information universe and increase its levels of density and state applied
+    /// to lowest space lavel.
+    ///
+    /// # Arguments
+    /// * `dimensions` - Number of dimensions which space contains.
+    /// * `state` - State of space at lowest level.
+    /// * `levels` - Number of levels of uniform density.
+    ///
+    /// # Returns
+    /// Tuple of new QDF object and vector of space ids.
+    ///
+    /// # Examples
+    /// ```
+    /// use quantized_density_fields::{QDF, State};
+    ///
+    /// // Creates 2d space with `3` as lowest level state and 2 levels of uniform density.
+    /// let (qdf, spaces) = QDF::with_levels_and_minimum_state(2, 3, 2);
+    /// assert_eq!(spaces.len(), (qdf.dimensions() + 1).pow(2));
+    /// assert_eq!(*qdf.space(spaces[0]).state(), 3);
+    /// assert_eq!(
+    ///     State::merge(&qdf.spaces().map(|id| *qdf.space(*id).state()).collect::<Vec<i32>>()),
+    ///     27,
+    /// );
+    /// ```
+    #[inline]
+    pub fn with_levels_and_minimum_state(
+        dimensions: usize,
+        state: S,
+        levels: usize,
+    ) -> (Self, Vec<ID>) {
+        Self::with_levels(dimensions, state.super_state_at_level(dimensions, levels), levels)
+    }
+
     /// Gets QDF id.
     #[inline]
     pub fn id(&self) -> ID {
@@ -86,6 +157,9 @@ where
     }
 
     /// Gets QDF dimensions number.
+    ///
+    /// # Returns
+    /// Number of dimensions (axes) space has.
     ///
     /// # Examples
     /// ```
@@ -104,6 +178,9 @@ where
     /// # Arguments
     /// * `id` - space id.
     ///
+    /// # Returns
+    /// `true` if given space exists, `false` otherwise.
+    ///
     /// # Examples
     /// ```
     /// use quantized_density_fields::QDF;
@@ -117,6 +194,9 @@ where
     }
 
     /// Gets iterator over all spaces IDs.
+    ///
+    /// # Returns
+    /// Iterator over all space ids.
     ///
     /// # Examples
     /// ```
@@ -142,6 +222,9 @@ where
     /// # Arguments
     /// * `id` - space id.
     ///
+    /// # Returns
+    /// `Some` reference to given `Space` data or `None` if space does not exists.
+    ///
     /// # Examples
     /// ```
     /// use quantized_density_fields::QDF;
@@ -160,6 +243,9 @@ where
     ///
     /// # Arguments
     /// * `id` - space id.
+    ///
+    /// # Returns
+    /// `Ok` with reference to given `Space` data or `Err` if space does not exists.
     ///
     /// # Examples
     /// ```
@@ -184,6 +270,12 @@ where
     /// # Arguments
     /// * `id` - space id.
     ///
+    /// # Returns
+    /// Reference to `Space` data.
+    ///
+    /// # Panics
+    /// When given space does not exists.
+    ///
     /// # Examples
     /// ```
     /// use quantized_density_fields::QDF;
@@ -202,6 +294,9 @@ where
     /// * `id` - space id.
     /// * `state` - state.
     ///
+    /// # Returns
+    /// `true` if space exists and state was successfuly set, `false` otherwise.
+    ///
     /// # Examples
     /// ```
     /// use quantized_density_fields::QDF;
@@ -219,6 +314,9 @@ where
     /// # Arguments
     /// * `id` - space id.
     /// * `state` - state.
+    ///
+    /// # Returns
+    /// `Ok` if space exists and state was successfuly set, `Err` otherwise.
     ///
     /// # Examples
     /// ```
@@ -241,6 +339,9 @@ where
     ///
     /// # Arguments
     /// * `id` - space id.
+    ///
+    /// # Returns
+    /// `Ok` with vector of space neighbors if space exists, `Err` otherwise.
     ///
     /// # Examples
     /// ```
@@ -265,6 +366,10 @@ where
     /// # Arguments
     /// * `from` - source space id.
     /// * `to` - target space id.
+    ///
+    /// # Returns
+    /// `Ok` with space ids that builds shortest path between two points, `Err` if path cannot be
+    /// found or spaces does not exists.
     ///
     /// # Examples
     /// ```
@@ -295,6 +400,10 @@ where
     ///
     /// # Arguments
     /// * `id` - space id.
+    ///
+    /// # Returns
+    /// `Ok` with tuple of source space id, vector of subdivided space ids and vector of
+    /// connections pairs or `Err` if space does not exists.
     ///
     /// # Examples
     /// ```
@@ -355,6 +464,10 @@ where
     ///
     /// # Arguments
     /// * `id` - space id.
+    ///
+    /// # Returns
+    /// `Ok` with `Some` tuple of vector of merged space ids and created space id, or `Ok` with
+    /// `None` if space cannot be merged or `Err` if given space does not exists.
     ///
     /// # Examples
     /// ```
@@ -445,6 +558,9 @@ where
 
     /// Performs simulation on QDF like `simulation_step()` but instead of applying results to QDF,
     /// it returns simulated platonic space states along with their space ID.
+    ///
+    /// # Returns
+    /// Vector of tuples of id and its updated space that were simulated.
     pub fn simulate_states<M>(&self) -> Vec<(ID, S)>
     where
         M: Simulate<S>,
@@ -463,6 +579,9 @@ where
 
     /// Performs simulation on QDF like `simulation_step_parallel()` but instead of applying
     /// results to QDF, it returns simulated platonic space states along with their space ID.
+    ///
+    /// # Returns
+    /// Vector of tuples of id and its updated space that were simulated.
     pub fn simulate_states_parallel<M>(&self) -> Vec<(ID, S)>
     where
         M: Simulate<S>,
